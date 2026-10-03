@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "mediaProfiles": {
+    "80MM_RECEIPT": {
+      "description": "80 mm thermal receipt",
+      "pageSize": "80mm x variable",
+      "contentWidth": "72mm"
+    },
+    "LETTER_FILE": {
+      "description": "US Letter portrait filing copy",
+      "pageSize": "8.5in x 11in"
+    },
+    "HALF_LETTER_LANDSCAPE": {
+      "description": "Half-sheet landscape",
+      "pageSize": "11in x 5.5in"
+    }
+  },
+  "endpoints": [
+    {
+      "id": "PH-FRONT-RECEIPT-01",
+      "label": "Front Office Receipt PrintHub",
+      "type": "CHROMEOS_BROWSER",
+      "queueId": "PH-FRONT-RECEIPT-01",
+      "bindings": {
+        "DEFAULT": {
+          "mode": "BROWSER_DEFAULT"
+        }
+      }
+    },
+    {
+      "id": "PH-AP-WIN-01",
+      "label": "AP Office Windows PrintHub",
+      "type": "WINDOWS_AGENT",
+      "queueId": "PH-AP-WIN-01",
+      "bindings": {
+        "RECEIPT": {
+          "mode": "WINDOWS_NAMED_PRINTER",
+          "printerName": "AP Receipt Printer"
+        },
+        "FILE": {
+          "mode": "WINDOWS_NAMED_PRINTER",
+          "printerName": "AP Kyocera"
+        }
+      }
+    }
+  ],
+  "routes": [
+    {
+      "id": "FRONT_RECEIPT",
+      "label": "Receipt Printer 1",
+      "endpointId": "PH-FRONT-RECEIPT-01",
+      "bindingKey": "DEFAULT",
+      "mediaProfileId": "80MM_RECEIPT",
+      "rendererId": "PASSKIOSK_RECEIPT"
+    },
+    {
+      "id": "AP_RECEIPT",
+      "label": "AP Receipt",
+      "endpointId": "PH-AP-WIN-01",
+      "bindingKey": "RECEIPT",
+      "mediaProfileId": "80MM_RECEIPT",
+      "rendererId": "TARDY_RECEIPT"
+    },
+    {
+      "id": "AP_FILE",
+      "label": "AP File Copy",
+      "endpointId": "PH-AP-WIN-01",
+      "bindingKey": "FILE",
+      "mediaProfileId": "LETTER_FILE",
+      "rendererId": "TARDY_FILE_COPY"
+    }
+  ]
+}
