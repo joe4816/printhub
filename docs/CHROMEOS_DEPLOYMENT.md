@@ -1,65 +1,92 @@
-# ChromeOS deployment
+# ChromeOS deployment — no-extension path
 
-## 1. Publish the dashboard
+This is the preferred first PrintHub deployment.
 
-Enable GitHub Pages for this repository using the `main` branch and repository root.
+## Goal
 
-Expected URL:
+One managed ChromeOS PrintHub endpoint maps to one policy-assigned default printer.
+
+```
+ChromeOS device
+    |
+    +-- auto-launch PrintHub
+    |
+    +-- silent printing enabled
+    |
+    +-- default printer selected by policy
+    |
+    v
+window.print()
+    |
+    v
+that device's default printer
+```
+
+No Chrome extension is required for this model.
+
+## 1. Dashboard
+
+GitHub Pages:
 
 `https://joe4816.github.io/printhub/`
 
-## 2. Package / publish the extension
+The dashboard supports a persistent endpoint identity.
 
-The extension source is in `extension/`.
+Example provisioning URL:
 
-It requires:
-- Manifest V3;
-- `printing` permission;
-- `storage` permission;
-- a content script scoped only to the PrintHub GitHub Pages origin.
+`https://joe4816.github.io/printhub/?endpoint=PH-FRONT-RECEIPT-01&label=Front%20Receipt&media=80MM_RECEIPT`
 
-For production, distribute the extension using an enterprise-supported extension deployment method so it has a stable extension ID.
+The endpoint / label / media values are identifiers and preferences, not credentials. When supplied, the page stores them locally for later launches.
 
-## 3. Force-install the extension
+## 2. Auto-launch
 
-In Google Admin, force-install the PrintHub extension on the PrintHub device / OU.
+Configure the managed ChromeOS kiosk / web app to launch the PrintHub URL automatically.
 
-The kiosk web app and the extension are separate:
-- web app = visible dashboard;
-- extension = privileged ChromeOS printing bridge.
+The specific device can remain inside the common PrintHub OU while printer availability is narrowed using the appropriate device or configuration group.
 
-## 4. Allow unattended `chrome.printing`
+## 3. Managed printer
 
-Chrome normally prompts the user to confirm a `chrome.printing.submitJob()` call.
+Assign the intended physical printer to the device / group.
 
-Add the final PrintHub extension ID to the Google Admin `PrintingAPIExtensionsAllowlist` policy to bypass that confirmation for the managed appliance.
+For the simple endpoint design, expose only the printer(s) needed for that endpoint and configure the intended destination as the default printer.
 
-## 5. Install managed printers
+PrintHub itself does not need to know the Chrome printer ID.
 
-Assign the required printers to the PrintHub ChromeOS device / OU.
+## 4. Silent printing
 
-The dashboard's **Managed Printers** card should then enumerate them through `chrome.printing.getPrinters()`.
+Enable ChromeOS silent printing for the PrintHub kiosk environment.
 
-## 6. Optional managed extension settings
+With the policy effective, `window.print()` should send the page to the configured default printer without showing the ordinary print-preview interaction.
 
-The extension declares these policy values:
+## 5. Test
 
-- `deviceName`
-- `allowTestPrint`
-- `sourceConfigJson` (reserved for source adapters)
+The dashboard contains **Browser Print Test**.
 
-Do not place production worker keys in GitHub source code.
+Choose the media profile and press:
 
-## 7. Smoke test
+**PRINT TO DEVICE DEFAULT**
 
-Before connecting any production source queue:
+The test is entirely local. It does not claim a production queue job.
 
-1. launch PrintHub;
-2. confirm **Print extension = Connected**;
-3. confirm the expected printers appear;
-4. choose a printer;
-5. press **PRINT TEST PAGE**;
-6. confirm the test reaches that exact printer;
-7. confirm no print confirmation appears once the extension allowlist policy is active.
+Interpret the result:
 
-Only after that should source polling be enabled.
+- physical output on the intended printer with no dialog: the simple ChromeOS endpoint path works;
+- preview / confirmation appears: silent-printing policy is not effective for that session;
+- output goes to the wrong printer: default-printer / printer-availability policy needs adjustment;
+- no output: investigate Chrome printing / printer configuration before connecting a live queue.
+
+## 6. Production queue
+
+Do not connect production polling until:
+
+- endpoint identity is final;
+- the printer test succeeds;
+- the backend can return only jobs authorized for this endpoint;
+- the job payload has a renderer / printable artifact contract;
+- completion and failure callbacks are defined.
+
+## Optional extension path
+
+An earlier `chrome.printing` experiment is preserved under `optional/chrome-extension/`.
+
+That path becomes useful only if a single ChromeOS endpoint must dynamically enumerate and select among multiple physical printers. It is not required for the first PrintHub deployment.
