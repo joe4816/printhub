@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PrintHub Endpoint Setup</title>
+  <link rel="stylesheet" href="setup.css">
+  <script type="module" src="setup.js"></script>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">PRINTHUB PROVISIONING</div>
+      <h1>Endpoint Setup</h1>
+      <p>Generate the auto-launch URL for one ChromeOS PrintHub endpoint. Endpoint IDs are routing identifiers, not secrets.</p>
+    </header>
+
+    <section class="card">
+      <label>
+        <span>Endpoint ID</span>
+        <input id="endpoint" placeholder="PH-FRONT-RECEIPT-01" autocomplete="off">
+        <small>Suggested pattern: PH-LOCATION-PURPOSE-NN</small>
+      </label>
+
+      <label>
+        <span>Endpoint label</span>
+        <input id="label" placeholder="Front Office Receipt PrintHub" autocomplete="off">
+      </label>
+
+      <label>
+        <span>Default media profile</span>
+        <select id="media"></select>
+      </label>
+
+      <div id="error" class="error" hidden></div>
+
+      <div class="actions">
+        <button id="generate" class="primary">GENERATE URL</button>
+        <button id="apply" class="ghost" disabled>OPEN & SAVE ON THIS BROWSER</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Auto-launch URL</h2>
+      <div class="url-row">
+        <input id="url" readonly value="Enter an endpoint ID above.">
+        <button id="copy" class="ghost" disabled>Copy</button>
+      </div>
+      <p class="note">Use the generated URL as the kiosk / auto-launch target. On first load, PrintHub stores the endpoint ID, label, and media preference locally so later launches can use the base URL.</p>
+    </section>
+
+    <section class="card">
+      <h2>What this does not configure</h2>
+      <p class="note">This page does not assign a physical printer, change Google Admin policy, enable silent printing, or create authentication credentials. Those remain separate deployment steps.</p>
+    </section>
+
+    <footer>
+      <a href="../">Back to PrintHub</a>
+      <a href="../simulator/">Routing simulator</a>
+    </footer>
+  </main>
+</body>
+</html>
