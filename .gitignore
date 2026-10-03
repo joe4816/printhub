@@ -1,0 +1,5 @@
+# Local PrintHub endpoint configuration / secrets
+agents/windows/config.json
+agents/windows/*.secret.json
+.env
+.env.*
