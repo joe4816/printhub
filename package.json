@@ -1,10 +1,11 @@
 {
   "name": "printhub",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "validate": "node scripts/validate-config.mjs"
   },
   "engines": {
     "node": ">=20"
