@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PrintHub · Printer Picker Prototype</title>
+  <link rel="stylesheet" href="picker.css">
+  <script type="module" src="picker.js"></script>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">PASSKIOSK UI PROTOTYPE</div>
+      <h1>Choose Your Printer</h1>
+      <p>This is a non-production mockup of the primary + optional second-copy interaction.</p>
+    </header>
+
+    <section class="picker-card">
+      <label>
+        <span>Primary printer</span>
+        <select id="primary"></select>
+      </label>
+
+      <label class="second-toggle">
+        <input id="sendSecond" type="checkbox">
+        <span>
+          <strong>Send second copy</strong>
+          <small>Print the same transaction to another destination.</small>
+        </span>
+      </label>
+
+      <label id="secondaryRow" hidden>
+        <span>Second printer</span>
+        <select id="secondary"></select>
+      </label>
+
+      <div id="pickerError" class="error" hidden></div>
+
+      <button id="continue" class="primary-btn" type="button">CONTINUE</button>
+    </section>
+
+    <section class="result-card">
+      <div class="result-head">
+        <h2>What PassKiosk would create</h2>
+        <span class="pill">prototype</span>
+      </div>
+      <div id="result"></div>
+    </section>
+
+    <footer>
+      <a href="../../simulator/">Open full routing simulator</a>
+      <a href="../../">Back to PrintHub</a>
+    </footer>
+  </main>
+</body>
+</html>
