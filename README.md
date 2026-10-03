@@ -1,66 +1,74 @@
 # PrintHub
 
-PrintHub is a reusable ChromeOS print appliance for school workflows.
+PrintHub is shared local printing infrastructure for school workflows.
 
-It is intentionally **not** a PassKiosk-only project. PassKiosk is expected to be the first job source, but PrintHub is designed so other systems can submit jobs later without inheriting PassKiosk business logic.
+It is intentionally **not** a PassKiosk-only project. PassKiosk is the first planned source, but PrintHub is designed so Badgie and future systems can use the same routing model without inheriting PassKiosk business logic.
 
-## Architecture
+## Core idea
 
-PrintHub has two browser-side pieces:
+A source application chooses a **logical print route**. The route decides:
 
-1. **GitHub Pages dashboard** — appliance status, printer visibility, diagnostics, and operator-safe controls.
-2. **Managed ChromeOS extension** — privileged access to the ChromeOS-only `chrome.printing` API.
+- which endpoint queue receives the job;
+- which renderer / media profile builds the copy;
+- which physical-printer binding the endpoint uses.
 
-The extension is the physical-printing layer. The public web page never contains printer credentials, worker keys, or other secrets.
+A single transaction can expand into multiple print jobs, so a user can select a primary printer and optionally **Send second copy** to another route.
 
 ```
-Source apps
-  PassKiosk
-  Badgie
-  Future apps
-      |
-      v
-job-source adapters / APIs
-      |
-      v
-PrintHub ChromeOS appliance
-  GitHub Pages dashboard
-      |
-      v
-managed PrintHub extension
-      |
-      v
-chrome.printing
-      |
-      v
-managed ChromeOS printers
+                         one transaction
+                               |
+                    route-selection / fan-out
+                       /               \
+                      v                 v
+              student copy         file copy
+              AP_RECEIPT            AP_FILE
+                   |                   |
+                   v                   v
+            PrintHub endpoint    PrintHub endpoint
+                   |                   |
+                   v                   v
+           physical printer     physical printer
 ```
 
-## Current foundation
+## Endpoint types
 
-The initial build provides:
+### ChromeOS browser endpoint — first implementation
 
-- a standalone PrintHub dashboard;
-- managed-printer discovery through a Chrome extension;
-- a manual synthetic PDF test-print path;
-- live print-job status events from `chrome.printing`;
-- an enterprise managed-policy schema for appliance configuration;
-- a documented generic job envelope for future source adapters.
-
-**Automatic source polling is deliberately not enabled yet.** The current PassKiosk worker returns application-specific document snapshots that still need a renderer contract before PrintHub should claim or complete those jobs.
-
-## GitHub Pages
-
-Intended site:
+A dedicated managed Chromebook auto-launches:
 
 `https://joe4816.github.io/printhub/`
 
-This repository contains only public client code. Do not commit worker keys, Wi-Fi credentials, student data, Google credentials, or other secrets.
+The endpoint prints with `window.print()`. ChromeOS policy supplies:
 
-## ChromeOS extension
+- the printer available to that device / group;
+- the default printer;
+- silent printing.
 
-The extension source is under `extension/`.
+The page does **not** need a Chrome extension for this one-default-printer design.
 
-For unattended printing, Chrome requires the extension to have the `printing` permission. Chrome's printing API is ChromeOS-only. To suppress the normal confirmation dialog for `chrome.printing.submitJob()`, the deployed extension must also be included in the Google Admin `PrintingAPIExtensionsAllowlist` policy.
+### Windows agent endpoint — planned
 
-See `docs/CHROMEOS_DEPLOYMENT.md` before deployment.
+A Windows PrintHub agent can service one or more Windows-installed printers by exact printer name. This is the path for USB-connected printers and for machines that already host local printer queues.
+
+See `docs/WINDOWS_AGENT.md`.
+
+## Repository status
+
+The current foundation now includes:
+
+- a standalone endpoint dashboard;
+- a browser-only silent-print test path;
+- persistent endpoint identity via URL / local storage;
+- a generic endpoint and routing model;
+- dual-copy / multi-route fan-out semantics;
+- a draft generic job envelope;
+- a Windows agent contract plus a local diagnostics scaffold;
+- the earlier Chrome extension experiment preserved under `optional/chrome-extension/` for a future multi-printer ChromeOS design.
+
+**Production queue polling is deliberately not enabled yet.** The current PassKiosk worker returns PassKiosk-specific document data. PrintHub should not claim live jobs until the backend exposes an endpoint-aware generic contract or a renderer adapter is deliberately connected.
+
+## GitHub Pages
+
+`https://joe4816.github.io/printhub/`
+
+This is a public client repository. Never commit worker keys, passwords, student data, Google credentials, Wi-Fi credentials, or printer credentials.
