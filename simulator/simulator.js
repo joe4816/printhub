@@ -1,5 +1,6 @@
 import { expandPrintSelection } from '../shared/routing.js';
 import { renderDocument } from '../shared/renderers.js';
+import { canTransition, applyTransition, applyRetry } from '../shared/status.js';
 
 let registry;
 let jobs = [];
@@ -131,36 +132,29 @@ function jobCard(job) {
 }
 
 function actionButton(job, status, label) {
-  const allowed = {
-    QUEUED:['CLAIMED','FAILED'],
-    CLAIMED:['PRINT_INVOKED','FAILED'],
-    PRINT_INVOKED:['PRINTED','FAILED'],
-    PRINTED:[],
-    FAILED:[]
-  };
-
-  const disabled = !(allowed[job.status] || []).includes(status);
+  const disabled = !canTransition(job.status, status);
   return '<button class="ghost" ' + (disabled ? 'disabled ' : '') +
     'data-action="' + status + '" data-job-id="' + escAttr(job.printJobId) + '">' + esc(label) + '</button>';
 }
 
 function transition(jobId, action) {
-  const job = jobs.find(x => x.printJobId === jobId);
-  if (!job) return;
+  const index = jobs.findIndex(x => x.printJobId === jobId);
+  if (index < 0) return;
 
-  if (action === 'RETRY') {
-    job.status = 'QUEUED';
-    job.attempts += 1;
-    job.history.push({status:'QUEUED', at:new Date().toISOString(), retry:true});
-    log('Retry queued for ' + job.routeLabel + ' (attempt ' + (job.attempts + 1) + ').');
-  } else {
-    job.status = action;
-    job.history.push({status:action, at:new Date().toISOString()});
-    log(job.routeLabel + ' → ' + action + '.');
+  try {
+    if (action === 'RETRY') {
+      jobs[index] = applyRetry(jobs[index]);
+      log('Retry queued for ' + jobs[index].routeLabel + ' (attempt ' + (jobs[index].attempts + 1) + ').');
+    } else {
+      jobs[index] = applyTransition(jobs[index], action);
+      log(jobs[index].routeLabel + ' → ' + action + '.');
+    }
+
+    selectedJobId = jobId;
+    render();
+  } catch (err) {
+    showError(err.message);
   }
-
-  selectedJobId = jobId;
-  render();
 }
 
 function renderPreview() {
