@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#24153f">
+  <title>PrintHub</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/printhub-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="config.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="mark">PH</div>
+      <div>
+        <div class="eyebrow">CHROMEOS PRINT APPLIANCE</div>
+        <h1>PrintHub</h1>
+        <p>Shared local printing infrastructure for school workflows.</p>
+      </div>
+      <div id="overallState" class="state state-warn">STARTING</div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <div class="card-head">
+          <h2>Appliance</h2>
+          <span id="clock" class="muted"></span>
+        </div>
+        <dl class="facts">
+          <div><dt>Dashboard</dt><dd id="dashboardState">Online</dd></div>
+          <div><dt>Print extension</dt><dd id="extensionState">Checking…</dd></div>
+          <div><dt>Build</dt><dd id="buildVersion">—</dd></div>
+          <div><dt>Device</dt><dd id="deviceName">Managed ChromeOS</dd></div>
+        </dl>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Managed Printers</h2>
+          <button id="refreshPrinters" class="ghost" type="button">Refresh</button>
+        </div>
+        <div id="printerSummary" class="big-number">—</div>
+        <div id="printerList" class="printer-list">
+          <div class="empty">Waiting for the PrintHub extension.</div>
+        </div>
+      </article>
+
+      <article class="card wide">
+        <div class="card-head">
+          <h2>Printer Test</h2>
+          <span class="badge">manual only</span>
+        </div>
+        <p class="muted">Sends a synthetic PDF directly through the ChromeOS printing API. It does not touch PassKiosk or any production queue.</p>
+        <div class="test-row">
+          <label>
+            <span>Printer</span>
+            <select id="testPrinter" disabled>
+              <option>Extension required</option>
+            </select>
+          </label>
+          <button id="testPrint" class="primary" type="button" disabled>PRINT TEST PAGE</button>
+        </div>
+        <div id="testResult" class="result muted">No test submitted.</div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Job Sources</h2>
+          <span class="badge badge-neutral">foundation</span>
+        </div>
+        <div class="source-row">
+          <div>
+            <strong>PassKiosk</strong>
+            <div class="muted small">Adapter not activated yet</div>
+          </div>
+          <span class="state state-idle">NOT CONNECTED</span>
+        </div>
+        <p class="muted small">Automatic polling stays off until the generic job contract and PassKiosk renderer are connected. This prevents PrintHub from claiming real jobs it cannot yet render.</p>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <h2>Recent Activity</h2>
+          <button id="clearLog" class="ghost" type="button">Clear</button>
+        </div>
+        <ol id="activityLog" class="activity-log"></ol>
+      </article>
+    </section>
+
+    <footer>
+      <span>PrintHub</span>
+      <span id="footerBuild"></span>
+      <span>Secrets belong in managed policy, never GitHub.</span>
+    </footer>
+  </main>
+</body>
+</html>
