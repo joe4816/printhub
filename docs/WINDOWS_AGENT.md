@@ -63,21 +63,47 @@ The renderer implementation has not been selected yet; the contract intentionall
 
 For printers where the source adapter intentionally produces printer-ready bytes, such as ESC/POS output for a compatible receipt printer.
 
-The agent can submit the raw job directly to the named Windows spooler queue.
+The agent can eventually submit raw bytes directly to a compatible named Windows spooler queue.
 
-This may be useful for receipt printers, but should only be enabled for a route whose renderer deliberately emits data compatible with that printer.
+This should only be enabled for a route whose renderer deliberately emits data compatible with that printer.
 
-## Current scaffold
+## Current safe implementation
 
-`agents/windows/PrintHubAgent.ps1` currently implements diagnostics only.
+`agents/windows/PrintHubAgent.ps1` currently supports diagnostics and dry runs.
 
-It:
+### Diagnostics
 
-- loads a local config;
+```powershell
+.\PrintHubAgent.ps1 -Diagnose
+```
+
+This:
+
+- loads the local endpoint config;
 - enumerates Windows printers;
-- validates each configured binding by exact printer name;
-- reports whether each route binding is ready.
+- validates each binding by exact printer name;
+- displays driver and port information;
+- exits non-zero if a configured binding is missing.
 
-It does **not** poll a production queue or print production jobs yet.
+### Endpoint-job dry run
 
-That is intentional until the endpoint protocol and PassKiosk handoff are finalized.
+```powershell
+.\PrintHubAgent.ps1 -DryRunJobs .\sample-jobs.json
+```
+
+This verifies job IDs, endpoint ownership, binding keys, media-profile presence, batch duplicates, and installed-printer resolution.
+
+It deliberately does not print.
+
+## Still intentionally disabled
+
+The Windows agent does not yet:
+
+- poll a production server;
+- possess a production endpoint credential;
+- claim live jobs;
+- submit PDFs to Windows;
+- submit RAW receipt bytes;
+- report live completion / failure callbacks.
+
+Those pieces should be enabled only after the endpoint protocol and PassKiosk migration are finalized and the real printer environment has been inspected.
