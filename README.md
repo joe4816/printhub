@@ -48,37 +48,48 @@ A Windows PrintHub agent can service one or more Windows-installed printers by e
 
 The current PowerShell scaffold can enumerate printers, validate exact bindings, and dry-run endpoint jobs without printing.
 
-See `docs/WINDOWS_AGENT.md`.
-
 ## Development lab
 
-The static routing simulator is available at:
+Routing simulator:
 
 `https://joe4816.github.io/printhub/simulator/`
 
-It uses fake data only. It can exercise primary + second-copy fan-out, endpoint queues, independent status transitions, retries, and rendered receipt/file-copy previews without contacting PassKiosk.
+Printer-picker prototype:
 
-## Repository status
+`https://joe4816.github.io/printhub/prototype/printer-picker/`
 
-The current foundation includes:
+Both use fake data only and do not contact the live PassKiosk queue.
 
-- a standalone endpoint dashboard;
-- a browser-only silent-print test path;
-- persistent endpoint identity via URL / local storage;
-- a generic endpoint and routing model;
-- dual-copy / multi-route fan-out semantics;
-- generic 80 mm and paper renderers;
-- a browser simulator;
-- automated routing / renderer tests;
-- a draft generic endpoint protocol;
-- a Windows agent diagnostics + dry-run scaffold;
+## Current foundation
+
+PrintHub now includes:
+
+- a standalone ChromeOS endpoint dashboard;
+- browser-default / silent-print test support;
+- persistent endpoint identity;
+- route → endpoint → binding → media modeling;
+- primary + optional second-copy fan-out;
+- independent sibling-copy status / retry behavior;
+- generic 80 mm, letter, and half-letter rendering;
+- an offline PassKiosk transaction adapter;
+- claim leases and safe pre-print crash recovery;
+- a Windows printer diagnostics + endpoint-job dry-run agent;
+- automated tests and semantic configuration validation;
+- a browser routing simulator;
+- a printer-picker UI prototype;
 - an additive PassKiosk migration plan;
-- the earlier Chrome extension experiment preserved under `optional/chrome-extension/` for a future multi-printer ChromeOS design.
+- the original Chrome extension experiment preserved under `optional/chrome-extension/`.
 
-**Production queue polling is deliberately not enabled yet.** The current PassKiosk worker returns application-specific document data. PrintHub should not claim live jobs until the backend exposes an endpoint-aware generic contract or a renderer adapter is deliberately connected.
+**Production queue polling remains deliberately disabled.** The current PassKiosk worker returns application-specific jobs and is not endpoint-aware yet. Live polling should wait until endpoint authentication, queue filtering, rendering, and callback behavior are migrated deliberately.
+
+## Documentation
+
+Start with:
+
+`docs/README.md`
 
 ## GitHub Pages
 
 `https://joe4816.github.io/printhub/`
 
-This is a public client repository. Never commit worker keys, passwords, student data, Google credentials, Wi-Fi credentials, or printer credentials.
+This is a public client repository. Never commit worker keys, passwords, student data, Google credentials, Wi-Fi credentials, printer credentials, or endpoint secrets.
