@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    {
+      "schemaVersion": 1,
+      "printJobId": "PJ-SAMPLE-01",
+      "jobGroupId": "JG-SAMPLE",
+      "sourceApp": "SIMULATOR",
+      "sourceTransactionId": "SAMPLE",
+      "copyRole": "PRIMARY",
+      "routeId": "AP_RECEIPT",
+      "endpointId": "PH-AP-WIN-01",
+      "bindingKey": "RECEIPT",
+      "mediaProfileId": "80MM_RECEIPT"
+    },
+    {
+      "schemaVersion": 1,
+      "printJobId": "PJ-SAMPLE-02",
+      "jobGroupId": "JG-SAMPLE",
+      "sourceApp": "SIMULATOR",
+      "sourceTransactionId": "SAMPLE",
+      "copyRole": "SECONDARY",
+      "routeId": "AP_FILE",
+      "endpointId": "PH-AP-WIN-01",
+      "bindingKey": "FILE",
+      "mediaProfileId": "LETTER_FILE"
+    }
+  ]
+}
