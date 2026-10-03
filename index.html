@@ -16,9 +16,9 @@
     <header class="hero">
       <div class="mark">PH</div>
       <div>
-        <div class="eyebrow">CHROMEOS PRINT APPLIANCE</div>
+        <div class="eyebrow">SHARED PRINT ENDPOINT</div>
         <h1>PrintHub</h1>
-        <p>Shared local printing infrastructure for school workflows.</p>
+        <p>One routing layer for ChromeOS, Windows, and future print appliances.</p>
       </div>
       <div id="overallState" class="state state-warn">STARTING</div>
     </header>
@@ -26,62 +26,104 @@
     <section class="grid">
       <article class="card">
         <div class="card-head">
-          <h2>Appliance</h2>
+          <h2>This Endpoint</h2>
           <span id="clock" class="muted"></span>
         </div>
         <dl class="facts">
-          <div><dt>Dashboard</dt><dd id="dashboardState">Online</dd></div>
-          <div><dt>Print extension</dt><dd id="extensionState">Checking…</dd></div>
+          <div><dt>Endpoint ID</dt><dd id="endpointId">—</dd></div>
+          <div><dt>Label</dt><dd id="endpointLabel">—</dd></div>
+          <div><dt>Type</dt><dd id="endpointType">CHROMEOS_BROWSER</dd></div>
           <div><dt>Build</dt><dd id="buildVersion">—</dd></div>
-          <div><dt>Device</dt><dd id="deviceName">Managed ChromeOS</dd></div>
         </dl>
       </article>
 
       <article class="card">
         <div class="card-head">
-          <h2>Managed Printers</h2>
-          <button id="refreshPrinters" class="ghost" type="button">Refresh</button>
+          <h2>ChromeOS Output</h2>
+          <span class="badge">no extension</span>
         </div>
-        <div id="printerSummary" class="big-number">—</div>
-        <div id="printerList" class="printer-list">
-          <div class="empty">Waiting for the PrintHub extension.</div>
-        </div>
+        <dl class="facts">
+          <div><dt>Print method</dt><dd>window.print()</dd></div>
+          <div><dt>Destination</dt><dd>Device default printer</dd></div>
+          <div><dt>Printer assignment</dt><dd>Google Admin policy</dd></div>
+          <div><dt>Silent printing</dt><dd id="silentState">Policy-controlled</dd></div>
+        </dl>
+        <p class="muted small note">A normal web page cannot enumerate the ChromeOS printer list. For this endpoint type, that is intentional: the device policy determines the one default destination.</p>
       </article>
 
       <article class="card wide">
         <div class="card-head">
-          <h2>Printer Test</h2>
-          <span class="badge">manual only</span>
+          <h2>Browser Print Test</h2>
+          <span class="badge">safe · no queue</span>
         </div>
-        <p class="muted">Sends a synthetic PDF directly through the ChromeOS printing API. It does not touch PassKiosk or any production queue.</p>
+        <p class="muted">This creates a synthetic local test page and calls the browser print function. It does not touch PassKiosk, a production transaction, or a PrintHub queue.</p>
         <div class="test-row">
           <label>
-            <span>Printer</span>
-            <select id="testPrinter" disabled>
-              <option>Extension required</option>
+            <span>Test media profile</span>
+            <select id="testMedia">
+              <option value="80MM_RECEIPT">80 mm receipt</option>
+              <option value="LETTER_PORTRAIT">Letter portrait</option>
+              <option value="HALF_LETTER_LANDSCAPE">Half-letter landscape</option>
             </select>
           </label>
-          <button id="testPrint" class="primary" type="button" disabled>PRINT TEST PAGE</button>
+          <button id="testPrint" class="primary" type="button">PRINT TO DEVICE DEFAULT</button>
         </div>
         <div id="testResult" class="result muted">No test submitted.</div>
       </article>
 
       <article class="card">
         <div class="card-head">
+          <h2>Endpoint Model</h2>
+          <span class="badge badge-neutral">v1</span>
+        </div>
+        <div class="endpoint-row">
+          <div>
+            <strong>ChromeOS Browser</strong>
+            <div class="muted small">One policy-assigned default printer per endpoint.</div>
+          </div>
+          <span class="state state-ok">ACTIVE DESIGN</span>
+        </div>
+        <div class="endpoint-row">
+          <div>
+            <strong>Windows Agent</strong>
+            <div class="muted small">Can bind routes to exact Windows printer names.</div>
+          </div>
+          <span class="state state-idle">CONTRACT READY</span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
           <h2>Job Sources</h2>
-          <span class="badge badge-neutral">foundation</span>
+          <span class="badge badge-neutral">not live yet</span>
         </div>
         <div class="source-row">
           <div>
             <strong>PassKiosk</strong>
-            <div class="muted small">Adapter not activated yet</div>
+            <div class="muted small">Endpoint-aware adapter pending</div>
           </div>
-          <span class="state state-idle">NOT CONNECTED</span>
+          <span class="state state-idle">NOT POLLING</span>
         </div>
-        <p class="muted small">Automatic polling stays off until the generic job contract and PassKiosk renderer are connected. This prevents PrintHub from claiming real jobs it cannot yet render.</p>
+        <p class="muted small note">Production polling stays disabled until jobs can be routed to a specific endpoint without PrintHub claiming work it cannot render.</p>
       </article>
 
-      <article class="card">
+      <article class="card wide">
+        <div class="card-head">
+          <h2>Routing Concept</h2>
+          <span class="badge">multi-copy ready</span>
+        </div>
+        <div class="route-demo">
+          <div class="route-box"><strong>Transaction</strong><span>one source record</span></div>
+          <div class="route-arrow">→</div>
+          <div class="route-box"><strong>Primary route</strong><span>e.g. AP Receipt</span></div>
+          <div class="route-plus">+</div>
+          <div class="route-box"><strong>Optional second route</strong><span>e.g. AP Kyocera</span></div>
+          <div class="route-arrow">→</div>
+          <div class="route-box"><strong>Separate jobs</strong><span>same transaction ID</span></div>
+        </div>
+      </article>
+
+      <article class="card wide">
         <div class="card-head">
           <h2>Recent Activity</h2>
           <button id="clearLog" class="ghost" type="button">Clear</button>
@@ -93,8 +135,22 @@
     <footer>
       <span>PrintHub</span>
       <span id="footerBuild"></span>
-      <span>Secrets belong in managed policy, never GitHub.</span>
+      <span>Endpoint IDs are identifiers, not secrets.</span>
     </footer>
   </main>
+
+  <section id="printSurface" aria-hidden="true">
+    <div class="print-brand">PrintHub</div>
+    <div class="print-title">Browser Print Test</div>
+    <div class="print-rule"></div>
+    <dl class="print-facts">
+      <div><dt>Endpoint</dt><dd id="printEndpoint">—</dd></div>
+      <div><dt>Media</dt><dd id="printMedia">—</dd></div>
+      <div><dt>Time</dt><dd id="printTime">—</dd></div>
+    </dl>
+    <div class="print-rule"></div>
+    <p>If this page reached the intended printer without a Chrome print dialog, the ChromeOS default-printer and silent-printing policies are working.</p>
+    <p class="print-small">This is a synthetic test. No production queue was touched.</p>
+  </section>
 </body>
 </html>
