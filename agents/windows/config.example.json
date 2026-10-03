@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "endpointId": "PH-AP-WIN-01",
+  "label": "AP Office Windows PrintHub",
+  "pollIntervalSeconds": 2,
+  "bindings": {
+    "RECEIPT": {
+      "printerName": "AP Receipt Printer",
+      "transport": "WINDOWS_NAMED_PRINTER"
+    },
+    "FILE": {
+      "printerName": "AP Kyocera",
+      "transport": "WINDOWS_NAMED_PRINTER"
+    }
+  }
+}
