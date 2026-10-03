@@ -77,3 +77,31 @@ test('invalid media profile in registry is rejected', () => {
 
   assert.throws(() => validateRegistry(broken), /missing media profile/i);
 });
+
+test('duplicate route IDs are rejected', () => {
+  const broken = structuredClone(registry);
+  broken.routes.push(structuredClone(broken.routes[0]));
+
+  assert.throws(() => validateRegistry(broken), /Duplicate route ID/);
+});
+
+test('duplicate endpoint IDs are rejected', () => {
+  const broken = structuredClone(registry);
+  broken.endpoints.push(structuredClone(broken.endpoints[0]));
+
+  assert.throws(() => validateRegistry(broken), /Duplicate endpoint ID/);
+});
+
+test('route renderer is required', () => {
+  const broken = structuredClone(registry);
+  delete broken.routes[0].rendererId;
+
+  assert.throws(() => validateRegistry(broken), /renderer ID/);
+});
+
+test('endpoint binding mode is required', () => {
+  const broken = structuredClone(registry);
+  delete broken.endpoints[0].bindings.DEFAULT.mode;
+
+  assert.throws(() => validateRegistry(broken), /missing mode/i);
+});
