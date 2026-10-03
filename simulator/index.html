@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PrintHub Simulator</title>
+  <link rel="stylesheet" href="simulator.css">
+  <script type="module" src="simulator.js"></script>
+</head>
+<body>
+  <main class="sim-shell">
+    <header class="sim-hero">
+      <div>
+        <div class="eyebrow">PRINTHUB DEVELOPMENT LAB</div>
+        <h1>Routing Simulator</h1>
+        <p>Build one transaction, fan it out to one or two routes, and exercise each job independently.</p>
+      </div>
+      <a class="back" href="../">Back to PrintHub</a>
+    </header>
+
+    <section class="card controls">
+      <div class="control-grid">
+        <label>
+          <span>Transaction ID</span>
+          <input id="transactionId" value="SIM-1001">
+        </label>
+        <label>
+          <span>Primary route</span>
+          <select id="primaryRoute"></select>
+        </label>
+        <label class="check">
+          <input id="sendSecond" type="checkbox">
+          <span>Send second copy</span>
+        </label>
+        <label id="secondaryWrap" hidden>
+          <span>Second route</span>
+          <select id="secondaryRoute"></select>
+        </label>
+      </div>
+      <div class="buttons">
+        <button id="createJobs" class="primary">Create simulated jobs</button>
+        <button id="reset" class="ghost">Reset</button>
+      </div>
+      <div id="error" class="error" hidden></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Source payload</h2>
+        <span class="pill">fake data only</span>
+      </div>
+      <div class="payload-grid">
+        <label><span>Title</span><input id="docTitle" value="Student Pass"></label>
+        <label><span>Subtitle</span><input id="docSubtitle" value="Simulation"></label>
+        <label><span>Student</span><input id="studentName" value="Sample Student"></label>
+        <label><span>Destination</span><input id="destination" value="Main Office"></label>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <article class="card">
+        <div class="section-head">
+          <h2>Endpoint queues</h2>
+          <span id="jobCount" class="pill">0 jobs</span>
+        </div>
+        <div id="queues" class="queues empty">Create a simulated transaction to populate endpoint queues.</div>
+      </article>
+
+      <article class="card">
+        <div class="section-head">
+          <h2>Rendered copy</h2>
+          <button id="printPreview" class="ghost" disabled>Print selected preview</button>
+        </div>
+        <div id="preview" class="preview empty">Select a job to preview its renderer and media profile.</div>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Event log</h2>
+        <span class="pill">simulator only</span>
+      </div>
+      <ol id="events" class="events"></ol>
+    </section>
+  </main>
+
+  <div id="printSurface"></div>
+</body>
+</html>
