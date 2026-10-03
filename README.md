@@ -48,7 +48,11 @@ A Windows PrintHub agent can service one or more Windows-installed printers by e
 
 The current PowerShell scaffold can enumerate printers, validate exact bindings, and dry-run endpoint jobs without printing.
 
-## Development lab
+## Development / setup tools
+
+Endpoint setup helper:
+
+`https://joe4816.github.io/printhub/setup/`
 
 Routing simulator:
 
@@ -58,7 +62,7 @@ Printer-picker prototype:
 
 `https://joe4816.github.io/printhub/prototype/printer-picker/`
 
-Both use fake data only and do not contact the live PassKiosk queue.
+The simulator and picker use fake data only and do not contact the live PassKiosk queue. The setup helper generates endpoint identifiers / URLs only; it does not grant queue access.
 
 ## Current foundation
 
@@ -67,6 +71,7 @@ PrintHub now includes:
 - a standalone ChromeOS endpoint dashboard;
 - browser-default / silent-print test support;
 - persistent endpoint identity;
+- an endpoint provisioning URL helper;
 - route → endpoint → binding → media modeling;
 - primary + optional second-copy fan-out;
 - independent sibling-copy status / retry behavior;
