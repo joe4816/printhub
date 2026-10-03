@@ -1,7 +1,7 @@
 {
   "name": "PrintHub",
   "short_name": "PrintHub",
-  "description": "Reusable ChromeOS print appliance dashboard.",
+  "description": "Shared print endpoint dashboard for ChromeOS and Windows-connected workflows.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
