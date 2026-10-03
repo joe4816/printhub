@@ -3,21 +3,78 @@ export function validateRegistry(registry) {
     throw new Error('Unsupported PrintHub routing registry.');
   }
 
-  const endpoints = new Map((registry.endpoints || []).map(x => [String(x.id), x]));
-  const media = registry.mediaProfiles || {};
+  if (!registry.mediaProfiles || typeof registry.mediaProfiles !== 'object') {
+    throw new Error('Routing registry is missing mediaProfiles.');
+  }
 
-  for (const route of registry.routes || []) {
-    const endpoint = endpoints.get(String(route.endpointId));
+  if (!Array.isArray(registry.endpoints) || !registry.endpoints.length) {
+    throw new Error('Routing registry must define at least one endpoint.');
+  }
+
+  if (!Array.isArray(registry.routes) || !registry.routes.length) {
+    throw new Error('Routing registry must define at least one route.');
+  }
+
+  for (const [mediaId, media] of Object.entries(registry.mediaProfiles)) {
+    requireId(mediaId, 'media profile ID');
+    if (!media || typeof media !== 'object') {
+      throw new Error('Media profile ' + mediaId + ' must be an object.');
+    }
+  }
+
+  assertUnique(registry.endpoints, 'endpoint');
+  assertUnique(registry.routes, 'route');
+
+  const endpoints = new Map();
+
+  for (const endpoint of registry.endpoints) {
+    const id = requireId(endpoint && endpoint.id, 'endpoint ID');
+
+    if (!String(endpoint.type || '').trim()) {
+      throw new Error('Endpoint ' + id + ' is missing type.');
+    }
+
+    if (!endpoint.bindings || typeof endpoint.bindings !== 'object') {
+      throw new Error('Endpoint ' + id + ' is missing bindings.');
+    }
+
+    const bindingKeys = Object.keys(endpoint.bindings);
+    if (!bindingKeys.length) {
+      throw new Error('Endpoint ' + id + ' must define at least one binding.');
+    }
+
+    for (const bindingKey of bindingKeys) {
+      requireId(bindingKey, 'binding key');
+      const binding = endpoint.bindings[bindingKey];
+      if (!binding || typeof binding !== 'object') {
+        throw new Error('Binding ' + bindingKey + ' on endpoint ' + id + ' must be an object.');
+      }
+      if (!String(binding.mode || '').trim()) {
+        throw new Error('Binding ' + bindingKey + ' on endpoint ' + id + ' is missing mode.');
+      }
+    }
+
+    endpoints.set(id, endpoint);
+  }
+
+  for (const route of registry.routes) {
+    const routeId = requireId(route && route.id, 'route ID');
+    const endpointId = requireId(route.endpointId, 'route endpoint ID');
+    const bindingKey = requireId(route.bindingKey, 'route binding key');
+    const mediaProfileId = requireId(route.mediaProfileId, 'route media profile ID');
+    requireId(route.rendererId, 'route renderer ID');
+
+    const endpoint = endpoints.get(endpointId);
     if (!endpoint) {
-      throw new Error('Route ' + route.id + ' references missing endpoint ' + route.endpointId + '.');
+      throw new Error('Route ' + routeId + ' references missing endpoint ' + endpointId + '.');
     }
 
-    if (!endpoint.bindings || !endpoint.bindings[route.bindingKey]) {
-      throw new Error('Route ' + route.id + ' references missing binding ' + route.bindingKey + '.');
+    if (!endpoint.bindings[bindingKey]) {
+      throw new Error('Route ' + routeId + ' references missing binding ' + bindingKey + '.');
     }
 
-    if (!media[route.mediaProfileId]) {
-      throw new Error('Route ' + route.id + ' references missing media profile ' + route.mediaProfileId + '.');
+    if (!registry.mediaProfiles[mediaProfileId]) {
+      throw new Error('Route ' + routeId + ' references missing media profile ' + mediaProfileId + '.');
     }
   }
 
@@ -73,4 +130,22 @@ export function expandPrintSelection(input, registry) {
       status: 'QUEUED'
     };
   });
+}
+
+function assertUnique(items, kind) {
+  const seen = new Set();
+
+  for (const item of items) {
+    const id = requireId(item && item.id, kind + ' ID');
+    if (seen.has(id)) {
+      throw new Error('Duplicate ' + kind + ' ID: ' + id + '.');
+    }
+    seen.add(id);
+  }
+}
+
+function requireId(value, label) {
+  const id = String(value || '').trim();
+  if (!id) throw new Error('Missing ' + label + '.');
+  return id;
 }
