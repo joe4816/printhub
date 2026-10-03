@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
-    [switch]$Diagnose
+    [switch]$Diagnose,
+    [string]$DryRunJobs = ''
 )
 
 Set-StrictMode -Version Latest
@@ -17,16 +18,132 @@ function Stop-WithMessage {
     exit $ExitCode
 }
 
-if (-not (Test-Path -LiteralPath $ConfigPath)) {
-    Stop-WithMessage -Message "PrintHub config not found: $ConfigPath. Copy config.example.json to config.json and edit the bindings." -ExitCode 2
+function Read-JsonFile {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Stop-WithMessage -Message "File not found: $Path" -ExitCode 2
+    }
+
+    try {
+        return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+    }
+    catch {
+        Stop-WithMessage -Message "Could not parse JSON file $Path : $($_.Exception.Message)" -ExitCode 2
+    }
 }
 
-try {
-    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+function Get-BindingMap {
+    param($Config)
+
+    $map = @{}
+    foreach ($property in $Config.bindings.PSObject.Properties) {
+        $map[$property.Name] = $property.Value
+    }
+
+    return $map
 }
-catch {
-    Stop-WithMessage -Message "Could not parse PrintHub config: $($_.Exception.Message)" -ExitCode 2
+
+function Test-DryRunJobs {
+    param(
+        [string]$Path,
+        $Config,
+        [hashtable]$Bindings,
+        [array]$InstalledPrinters
+    )
+
+    $document = Read-JsonFile -Path $Path
+    $jobs = @()
+
+    if ($document -is [System.Array]) {
+        $jobs = @($document)
+    }
+    elseif ($document.jobs) {
+        $jobs = @($document.jobs)
+    }
+    else {
+        $jobs = @($document)
+    }
+
+    Write-Host ''
+    Write-Host 'Dry-run endpoint jobs'
+    Write-Host '---------------------'
+
+    $seen = @{}
+    $rows = @()
+    $allValid = $true
+
+    foreach ($job in $jobs) {
+        $jobId = [string]$job.printJobId
+        $endpointId = [string]$job.endpointId
+        $bindingKey = [string]$job.bindingKey
+        $media = [string]$job.mediaProfileId
+
+        $reason = ''
+        $valid = $true
+
+        if ([string]::IsNullOrWhiteSpace($jobId)) {
+            $valid = $false
+            $reason = 'Missing printJobId'
+        }
+        elseif ($seen.ContainsKey($jobId)) {
+            $valid = $false
+            $reason = 'Duplicate printJobId in batch'
+        }
+        elseif ($endpointId -ne [string]$Config.endpointId) {
+            $valid = $false
+            $reason = 'Endpoint mismatch'
+        }
+        elseif (-not $Bindings.ContainsKey($bindingKey)) {
+            $valid = $false
+            $reason = 'Unknown binding'
+        }
+        elseif ([string]::IsNullOrWhiteSpace($media)) {
+            $valid = $false
+            $reason = 'Missing mediaProfileId'
+        }
+        else {
+            $binding = $Bindings[$bindingKey]
+            $printerName = [string]$binding.printerName
+            $printer = $InstalledPrinters | Where-Object { $_.Name -eq $printerName } | Select-Object -First 1
+
+            if (-not $printer) {
+                $valid = $false
+                $reason = 'Configured printer is not installed'
+            }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($jobId)) {
+            $seen[$jobId] = $true
+        }
+
+        if (-not $valid) {
+            $allValid = $false
+        }
+
+        $rows += [pscustomobject]@{
+            Job        = $jobId
+            Route      = [string]$job.routeId
+            Binding    = $bindingKey
+            Media      = $media
+            Valid      = $valid
+            Reason     = $reason
+        }
+    }
+
+    $rows | Format-Table -AutoSize
+
+    Write-Host ''
+    if ($allValid) {
+        Write-Host 'DRY RUN RESULT: Every sample job can be resolved to this endpoint and an installed printer.'
+        return $true
+    }
+
+    Write-Warning 'DRY RUN RESULT: One or more sample jobs cannot be serviced by this endpoint.'
+    return $false
 }
+
+$config = Read-JsonFile -Path $ConfigPath
 
 if (-not $config.endpointId) {
     Stop-WithMessage -Message 'Config is missing endpointId.' -ExitCode 2
@@ -35,6 +152,8 @@ if (-not $config.endpointId) {
 if (-not $config.bindings) {
     Stop-WithMessage -Message 'Config is missing bindings.' -ExitCode 2
 }
+
+$bindings = Get-BindingMap -Config $config
 
 Write-Host ''
 Write-Host 'PrintHub Windows Agent Diagnostics'
@@ -62,9 +181,8 @@ Write-Host '----------------------------'
 $rows = @()
 $allReady = $true
 
-foreach ($property in $config.bindings.PSObject.Properties) {
-    $bindingKey = $property.Name
-    $binding = $property.Value
+foreach ($bindingKey in ($bindings.Keys | Sort-Object)) {
+    $binding = $bindings[$bindingKey]
     $printerName = [string]$binding.printerName
     $match = $printers | Where-Object { $_.Name -eq $printerName } | Select-Object -First 1
 
@@ -90,6 +208,16 @@ else {
     Write-Warning 'RESULT: One or more configured printer names do not exactly match an installed Windows printer.'
 }
 
+if (-not [string]::IsNullOrWhiteSpace($DryRunJobs)) {
+    $dryRunReady = Test-DryRunJobs -Path $DryRunJobs -Config $config -Bindings $bindings -InstalledPrinters $printers
+
+    if ($dryRunReady) {
+        exit 0
+    }
+
+    exit 5
+}
+
 if ($Diagnose) {
     if ($allReady) {
         exit 0
@@ -98,6 +226,6 @@ if ($Diagnose) {
     exit 4
 }
 
-Write-Warning 'Production queue polling is intentionally disabled in this foundation build.'
-Write-Host 'Run with -Diagnose while the generic endpoint protocol is finalized.'
+Write-Warning 'Production queue polling and physical printing are intentionally disabled in this foundation build.'
+Write-Host 'Use -Diagnose or -DryRunJobs while the generic endpoint protocol is finalized.'
 exit 3
