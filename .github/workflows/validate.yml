@@ -23,9 +23,5 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-      - name: Validate JSON files
-        shell: bash
-        run: |
-          node -e "JSON.parse(require('fs').readFileSync('config/routes.example.json','utf8'))"
-          node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8'))"
-          node -e "JSON.parse(require('fs').readFileSync('agents/windows/config.example.json','utf8'))"
+      - name: Validate repository configuration
+        run: node scripts/validate-config.mjs
