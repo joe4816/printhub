@@ -4,8 +4,11 @@
   const cfg = window.PRINTHUB_CONFIG || {};
   const $ = id => document.getElementById(id);
   const STORAGE_KEY = 'PRINTHUB_ENDPOINT_V1';
+  const BRIDGE_CHANNEL = 'PRINTHUB_BRIDGE_V1';
+  const pendingBridge = new Map();
 
   document.addEventListener('DOMContentLoaded', init);
+  window.addEventListener('message', onBridgeMessage);
 
   function init() {
     const endpoint = resolveEndpointIdentity();
@@ -23,6 +26,11 @@
     $('testPrint').addEventListener('click', printTest);
     $('testMedia').addEventListener('change', persistMediaChoice);
     $('clearLog').addEventListener('click', () => $('activityLog').innerHTML = '');
+    $('refreshPrinters').addEventListener('click', refreshBridgePrinters);
+    $('bridgePrint').addEventListener('click', directPrintTest);
+    $('bridgePrinter').addEventListener('change', () => {
+      $('bridgePrint').disabled = !$('bridgePrinter').value;
+    });
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
@@ -36,7 +44,128 @@
       log('Endpoint ready: ' + endpoint.id + '.');
     }
 
-    log('Browser-default printing mode active. No Chrome extension required.');
+    log('Browser-default printing mode active.');
+    detectBridge();
+  }
+
+  async function detectBridge() {
+    try {
+      const info = await bridgeRequest('PING', {}, 2500);
+      $('bridgeState').textContent = 'Connected v' + info.version;
+      $('bridgeBadge').textContent = 'bridge connected';
+      $('bridgeBadge').className = 'badge';
+      $('bridgeResult').textContent = 'Bridge connected. Loading installed printers…';
+      log('ChromeOS bridge connected: v' + info.version + '.');
+      await refreshBridgePrinters();
+    } catch (_) {
+      $('bridgeState').textContent = 'Not detected';
+      $('bridgeBadge').textContent = 'default mode';
+      $('bridgeBadge').className = 'badge badge-neutral';
+      $('bridgeResult').textContent = 'Bridge not detected. Default-printer mode is still available.';
+      $('bridgePrinter').disabled = true;
+      $('bridgePrint').disabled = true;
+      log('ChromeOS direct-print bridge not detected; using default-printer fallback.');
+    }
+  }
+
+  async function refreshBridgePrinters() {
+    $('refreshPrinters').disabled = true;
+    try {
+      const value = await bridgeRequest('GET_PRINTERS', {}, 5000);
+      const printers = Array.isArray(value.printers) ? value.printers : [];
+      const select = $('bridgePrinter');
+      select.innerHTML = '';
+
+      if (!printers.length) {
+        select.append(new Option('No installed printers returned', ''));
+        select.disabled = true;
+        $('bridgePrint').disabled = true;
+        $('bridgeResult').textContent = 'Bridge is connected, but ChromeOS returned no installed printers.';
+        log('Bridge returned zero printers.');
+        return;
+      }
+
+      select.append(new Option('Choose a printer…', ''));
+      for (const p of printers) {
+        const label = p.name + (p.isDefault ? '  [default]' : '') + (p.uri ? ' — ' + p.uri : '');
+        select.append(new Option(label, p.id));
+      }
+
+      select.disabled = false;
+      $('bridgePrint').disabled = true;
+      $('bridgeResult').textContent = printers.length + ' installed printer(s) returned by ChromeOS.';
+      log('Bridge returned ' + printers.length + ' installed printer(s).');
+    } catch (err) {
+      $('bridgeResult').textContent = 'Could not read printers: ' + err.message;
+      log('Bridge printer enumeration failed: ' + err.message);
+    } finally {
+      $('refreshPrinters').disabled = false;
+    }
+  }
+
+  async function directPrintTest() {
+    const printerId = $('bridgePrinter').value;
+    const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
+    if (!printerId) return;
+
+    $('bridgePrint').disabled = true;
+    $('bridgeResult').textContent = 'Submitting directly to ' + printerName + '…';
+    log('Direct printer test requested for ' + printerName + '.');
+
+    try {
+      const result = await bridgeRequest('PRINT_TEST', {printerId}, 15000);
+      $('bridgeResult').textContent =
+        'Direct submit returned ' + (result.status || 'UNKNOWN') +
+        (result.jobId ? ' · job ' + result.jobId : '') +
+        '. Confirm the physical output.';
+      log('Direct print submit returned ' + (result.status || 'UNKNOWN') + ' for ' + (result.printerName || printerName) + '.');
+    } catch (err) {
+      $('bridgeResult').textContent = 'Direct print failed: ' + err.message;
+      log('Direct print failed: ' + err.message);
+    } finally {
+      $('bridgePrint').disabled = !$('bridgePrinter').value;
+    }
+  }
+
+  function bridgeRequest(action, payload, timeoutMs) {
+    const id = 'ph-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingBridge.delete(id);
+        reject(new Error('No response from the ChromeOS bridge.'));
+      }, timeoutMs || 5000);
+
+      pendingBridge.set(id, {resolve, reject, timer});
+      window.postMessage({
+        channel:BRIDGE_CHANNEL,
+        source:'PRINTHUB_PAGE',
+        type:'request',
+        id,
+        action,
+        payload:payload || {}
+      }, window.location.origin);
+    });
+  }
+
+  function onBridgeMessage(event) {
+    if (event.source !== window || event.origin !== window.location.origin) return;
+    const msg = event.data || {};
+    if (msg.channel !== BRIDGE_CHANNEL || msg.source !== 'PRINTHUB_EXTENSION') return;
+
+    if (msg.type === 'response' && msg.id) {
+      const pending = pendingBridge.get(msg.id);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      pendingBridge.delete(msg.id);
+      if (msg.ok) pending.resolve(msg.value || {});
+      else pending.reject(new Error(msg.error || 'Bridge request failed.'));
+      return;
+    }
+
+    if (msg.type === 'event' && msg.event === 'JOB_STATUS') {
+      const value = msg.value || {};
+      log('ChromeOS print job ' + (value.jobId || '?') + ' status: ' + (value.status || 'UNKNOWN') + '.');
+    }
   }
 
   function resolveEndpointIdentity() {
