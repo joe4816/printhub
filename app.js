@@ -98,7 +98,11 @@
     $('testResult').textContent =
       'Sending browser print test to this device\'s default printer…';
 
-    log('Browser print test requested using ' + media + '.');
+    if (media === '80MM_RECEIPT') {
+      log('Browser print test requested using 80MM_RECEIPT with 18 mm tear buffer.');
+    } else {
+      log('Browser print test requested using ' + media + '.');
+    }
 
     const afterPrint = () => {
       $('testResult').textContent =
@@ -124,7 +128,7 @@
     } else if (media === 'HALF_LETTER_LANDSCAPE') {
       style.textContent = '@page { size: 11in 5.5in; margin: 0.5in; }';
     } else {
-      style.textContent = '@page { size: 80mm 120mm; margin: 4mm; }';
+      style.textContent = '@page { size: 80mm 140mm; margin: 4mm; }';
     }
   }
 
