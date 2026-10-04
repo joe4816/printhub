@@ -40,23 +40,44 @@
       <article class="card">
         <div class="card-head">
           <h2>ChromeOS Output</h2>
-          <span class="badge">no extension</span>
+          <span id="bridgeBadge" class="badge badge-neutral">default mode</span>
         </div>
         <dl class="facts">
-          <div><dt>Print method</dt><dd>window.print()</dd></div>
-          <div><dt>Destination</dt><dd>Device default printer</dd></div>
-          <div><dt>Printer assignment</dt><dd>Google Admin policy</dd></div>
+          <div><dt>Default method</dt><dd>window.print()</dd></div>
+          <div><dt>Default destination</dt><dd>Device default printer</dd></div>
+          <div><dt>Direct bridge</dt><dd id="bridgeState">Not detected</dd></div>
           <div><dt>Silent printing</dt><dd id="silentState">Policy-controlled</dd></div>
         </dl>
-        <p class="muted small note">A normal web page cannot enumerate the ChromeOS printer list. For this endpoint type, that is intentional: the device policy determines the one default destination.</p>
+        <p class="muted small note">Default mode uses ChromeOS policy. When the managed PrintHub bridge is installed, this page can enumerate installed printers and submit a job to one exact printer ID.</p>
       </article>
 
       <article class="card wide">
         <div class="card-head">
-          <h2>Browser Print Test</h2>
-          <span class="badge">safe · no queue</span>
+          <h2>Direct Printer Test</h2>
+          <span class="badge">bridge · exact destination</span>
         </div>
-        <p class="muted">This creates a synthetic local test page and calls the browser print function. It does not touch PassKiosk, a production transaction, or a PrintHub queue.</p>
+        <p class="muted">This is the multi-printer proof. It asks the managed ChromeOS bridge for the printers visible to this Chromebook, then submits a synthetic PDF directly to the selected printer ID. No production queue is touched.</p>
+        <div class="test-row bridge-row">
+          <label>
+            <span>Installed printer</span>
+            <select id="bridgePrinter" disabled>
+              <option value="">Bridge not detected</option>
+            </select>
+          </label>
+          <div class="button-row">
+            <button id="refreshPrinters" class="ghost" type="button">REFRESH PRINTERS</button>
+            <button id="bridgePrint" class="primary" type="button" disabled>PRINT DIRECTLY</button>
+          </div>
+        </div>
+        <div id="bridgeResult" class="result muted">Waiting for the PrintHub ChromeOS bridge.</div>
+      </article>
+
+      <article class="card wide">
+        <div class="card-head">
+          <h2>Browser Default Print Test</h2>
+          <span class="badge badge-neutral">fallback · no queue</span>
+        </div>
+        <p class="muted">This uses window.print() and therefore prints only to whatever ChromeOS currently considers the device default.</p>
         <div class="test-row">
           <label>
             <span>Test media profile</span>
@@ -79,7 +100,7 @@
         <div class="endpoint-row">
           <div>
             <strong>ChromeOS Browser</strong>
-            <div class="muted small">One policy-assigned default printer per endpoint.</div>
+            <div class="muted small">Default-printer fallback plus optional exact-printer bridge.</div>
           </div>
           <span class="state state-ok">ACTIVE DESIGN</span>
         </div>
