@@ -2,7 +2,7 @@
 <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
   <app appid="dfdadlbllhjoadgkdlpgghfdklbhlpem">
     <updatecheck
-      codebase="https://joe4816.github.io/printhub/optional/chrome-extension/printhub-bridge.crx"
+      codebase="https://joe4816.github.io/printhub/printhub-bridge.crx"
       version="0.2.0" />
   </app>
 </gupdate>
