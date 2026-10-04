@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "PrintHub ChromeOS Bridge (Optional)",
-  "version": "0.1.0",
-  "description": "Optional managed ChromeOS multi-printer bridge for PrintHub.",
+  "name": "PrintHub ChromeOS Bridge",
+  "version": "0.2.0",
+  "description": "Managed ChromeOS bridge that lets PrintHub enumerate and target specific printers.",
   "permissions": ["printing", "storage"],
+  "host_permissions": ["https://joe4816.github.io/printhub/*"],
   "storage": {
     "managed_schema": "managed-schema.json"
   },
@@ -16,5 +17,6 @@
   ],
   "background": {
     "service_worker": "service-worker.js"
-  }
+  },
+  "update_url": "https://joe4816.github.io/printhub/optional/chrome-extension/update.xml"
 }
