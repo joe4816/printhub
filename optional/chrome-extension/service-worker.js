@@ -1,4 +1,4 @@
-const EXTENSION_VERSION='0.1.0';
+const EXTENSION_VERSION='0.2.0';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'PRINTHUB_REQUEST') return;
@@ -79,14 +79,14 @@ async function submitTestPrint(printerId) {
 
   const media = chooseMedia(caps);
   const ticket = buildTicket(caps, media);
-  const widthMicrons = Number(media.width_microns || 215900);
-  const heightMicrons = Number(media.height_microns || 279400);
+  const widthMicrons = Number(media.width_microns || 80000);
+  const heightMicrons = Number(media.height_microns || 140000);
   const pdf = makeTestPdf(printer.name, widthMicrons, heightMicrons);
 
   const response = await chrome.printing.submitJob({
     job:{
       printerId,
-      title:'PrintHub Test',
+      title:'PrintHub Direct Printer Test',
       ticket,
       contentType:'application/pdf',
       document:pdf
@@ -95,7 +95,9 @@ async function submitTestPrint(printerId) {
 
   return {
     status:response && response.status,
-    jobId:response && response.jobId ? response.jobId : ''
+    jobId:response && response.jobId ? response.jobId : '',
+    printerId,
+    printerName:printer.name
   };
 }
 
@@ -104,7 +106,7 @@ function chooseMedia(caps) {
     ? caps.media_size.option : [];
 
   if (!options.length) {
-    return {width_microns:215900,height_microns:279400};
+    return {width_microns:80000,height_microns:140000};
   }
 
   const continuous = options.find(x => x.is_continuous_feed);
@@ -113,14 +115,18 @@ function chooseMedia(caps) {
     const maxH = Number(continuous.max_height_microns || 2000000);
     return {
       width_microns:Number(continuous.width_microns || 80000),
-      height_microns:Math.max(minH, Math.min(100000, maxH))
+      height_microns:Math.max(minH, Math.min(140000, maxH))
     };
   }
 
-  const preferred = options.find(x => x.is_default) || options[0];
+  const eighty = options.find(x => {
+    const w=Number(x.width_microns || 0);
+    return w >= 76000 && w <= 82000;
+  });
+  const preferred = eighty || options.find(x => x.is_default) || options[0];
   return {
-    width_microns:Number(preferred.width_microns || 215900),
-    height_microns:Number(preferred.height_microns || 279400),
+    width_microns:Number(preferred.width_microns || 80000),
+    height_microns:Number(preferred.height_microns || 140000),
     vendor_id:preferred.vendor_id
   };
 }
@@ -129,7 +135,7 @@ function buildTicket(caps, media) {
   const color = defaultOption(caps.color, {type:'STANDARD_MONOCHROME'});
   const duplex = defaultOption(caps.duplex, {type:'NO_DUPLEX'});
   const orientation = defaultOption(caps.page_orientation, {type:'PORTRAIT'});
-  const dpi = defaultOption(caps.dpi, {horizontal_dpi:300,vertical_dpi:300});
+  const dpi = defaultOption(caps.dpi, {horizontal_dpi:203,vertical_dpi:203});
 
   return {
     version:'1.0',
@@ -139,8 +145,8 @@ function buildTicket(caps, media) {
       page_orientation:{type:orientation.type || 'PORTRAIT'},
       copies:{copies:1},
       dpi:{
-        horizontal_dpi:Number(dpi.horizontal_dpi || 300),
-        vertical_dpi:Number(dpi.vertical_dpi || 300)
+        horizontal_dpi:Number(dpi.horizontal_dpi || 203),
+        vertical_dpi:Number(dpi.vertical_dpi || 203)
       },
       media_size:media,
       collate:{collate:false}
@@ -158,16 +164,16 @@ function makeTestPdf(printerName, widthMicrons, heightMicrons) {
   const heightPt = Math.max(180, micronsToPoints(heightMicrons));
   const lines = [
     'PRINTHUB',
-    'CHROMEOS PRINT TEST',
+    'DIRECT PRINTER TEST',
     '',
     'Printer: ' + printerName,
     'Time: ' + new Date().toLocaleString(),
     '',
-    'If this printed on the selected printer,',
-    'the optional PrintHub ChromeOS bridge is working.'
+    'Selected by printer ID.',
+    'No default-printer policy used.'
   ];
 
-  const content = pdfTextStream(lines, 18, Math.max(30, heightPt - 34));
+  const content = pdfTextStream(lines, 12, Math.max(30, heightPt - 24));
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -199,9 +205,9 @@ function makeTestPdf(printerName, widthMicrons, heightMicrons) {
 
 function pdfTextStream(lines, x, y) {
   const safe = s => String(s).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');
-  let out = 'BT\n/F1 11 Tf\n' + x + ' ' + y + ' Td\n';
+  let out = 'BT\n/F1 9 Tf\n' + x + ' ' + y + ' Td\n';
   lines.forEach((line, i) => {
-    if (i) out += '0 -16 Td\n';
+    if (i) out += '0 -14 Td\n';
     out += '(' + safe(line) + ') Tj\n';
   });
   return out + 'ET';
