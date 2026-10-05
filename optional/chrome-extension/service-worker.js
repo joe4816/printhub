@@ -1,4 +1,5 @@
-const EXTENSION_VERSION='0.4.0';
+const EXTENSION_VERSION='0.5.0';
+const SOURCE_JOB_PREFIX='PRINTHUB_SOURCE_JOB_';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'PRINTHUB_REQUEST') return;
@@ -11,16 +12,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 chrome.printing.onJobStatusChanged.addListener((jobId, status) => {
-  chrome.tabs.query({url:'https://joe4816.github.io/printhub/*'}).then(tabs => {
-    for (const tab of tabs) {
-      if (!tab.id) continue;
-      chrome.tabs.sendMessage(tab.id, {
-        type:'PRINTHUB_EVENT',
-        event:'JOB_STATUS',
-        value:{jobId,status}
-      }).catch(() => {});
-    }
-  });
+  broadcastJobStatus(jobId, status);
+  handleSourceJobStatus(jobId, status).catch(() => {});
 });
 
 async function handleRequest(action, payload) {
@@ -48,6 +41,22 @@ async function handleRequest(action, payload) {
     return submitPdfDocument(String(payload.printerId || ''), payload);
   }
 
+  if (action === 'SOURCE_STATUS') {
+    return sourceStatus();
+  }
+
+  if (action === 'POLL_SOURCE') {
+    return pollSource(payload);
+  }
+
+  if (action === 'PRINT_SOURCE_JOB') {
+    return submitSourceJob(payload);
+  }
+
+  if (action === 'FAIL_SOURCE_JOB') {
+    return failSourceJob(payload);
+  }
+
   throw new Error('Unsupported PrintHub action: ' + action);
 }
 
@@ -57,6 +66,282 @@ async function managedSettings() {
   } catch (_) {
     return {};
   }
+}
+
+async function sourceConfig() {
+  const managed = await managedSettings();
+  const raw = String(managed.sourceConfigJson || '').trim();
+  if (!raw) return null;
+
+  let cfg;
+  try {
+    cfg = JSON.parse(raw);
+  } catch (_) {
+    throw new Error('Managed sourceConfigJson is not valid JSON.');
+  }
+
+  const endpointUrl = String(cfg.endpointUrl || '').trim();
+  const endpointId = String(cfg.endpointId || '').trim();
+  const endpointKey = String(cfg.endpointKey || '').trim();
+  const bindings = cfg.bindings && typeof cfg.bindings === 'object' ? cfg.bindings : {};
+
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl)) {
+    throw new Error('Managed source endpointUrl must be an Apps Script /exec URL.');
+  }
+  if (!endpointId) throw new Error('Managed source endpointId is required.');
+  if (endpointKey.length < 32) throw new Error('Managed source endpointKey is missing or invalid.');
+  if (!Object.keys(bindings).length) throw new Error('Managed source bindings are required.');
+
+  return {
+    endpointUrl,
+    endpointId,
+    endpointKey,
+    bindings,
+    pollAfterMs:clampNumber(cfg.pollAfterMs, 1000, 30000, 2500)
+  };
+}
+
+async function sourceStatus() {
+  const cfg = await sourceConfig();
+  if (!cfg) return {configured:false};
+
+  await reconcileSourceJobs();
+
+  const ping = await callSource(cfg, 'endpoint.ping', {});
+  return {
+    configured:true,
+    endpointId:cfg.endpointId,
+    enabled:Boolean(ping.enabled),
+    pollAfterMs:Number(ping.pollAfterMs || cfg.pollAfterMs || 2500),
+    bindings:Object.keys(cfg.bindings)
+  };
+}
+
+async function pollSource(payload) {
+  const cfg = await requireSourceConfig();
+  await reconcileSourceJobs();
+
+  const result = await callSource(cfg, 'endpoint.poll', {
+    maxJobs:clampNumber(payload && payload.maxJobs, 1, 5, 1)
+  });
+
+  return {
+    endpointId:cfg.endpointId,
+    pollAfterMs:Number(result.pollAfterMs || cfg.pollAfterMs || 2500),
+    jobs:Array.isArray(result.jobs) ? result.jobs : []
+  };
+}
+
+async function submitSourceJob(payload) {
+  const cfg = await requireSourceConfig();
+  const job = payload && payload.job || {};
+  const printJobId = String(job.printJobId || '').trim();
+  const claimId = String(job.claim && job.claim.claimId || '').trim();
+  const bindingKey = String(job.bindingKey || '').trim();
+
+  if (!printJobId || !claimId) throw new Error('Source job is missing printJobId or claimId.');
+  if (String(job.endpointId || '') !== cfg.endpointId) throw new Error('Source job endpoint does not match this managed endpoint.');
+  if (!bindingKey) throw new Error('Source job bindingKey is required.');
+
+  const printer = await resolveBindingPrinter(cfg, bindingKey);
+  const encoded = String(payload && payload.pdfBase64 || '');
+  if (!encoded) throw new Error('PDF payload is required.');
+  if (encoded.length > 4000000) throw new Error('PDF payload is too large for the PrintHub bridge.');
+
+  const info = await chrome.printing.getPrinterInfo(printer.id);
+  const caps = info && info.capabilities && info.capabilities.printer;
+  if (!caps) throw new Error('ChromeOS did not return capabilities for ' + printer.name + '.');
+
+  const requestedHeight = clampNumber(payload && payload.heightMicrons, 60000, 500000, 100000);
+  const trimSupported = supportsTrim(caps);
+  const trimRequested = payload && payload.trim !== false;
+  const media = chooseMedia(caps, requestedHeight);
+  const ticket = buildTicket(caps, media, trimRequested && trimSupported);
+  const pdf = base64ToBlob(encoded, 'application/pdf');
+
+  const response = await chrome.printing.submitJob({
+    job:{
+      printerId:printer.id,
+      title:String(payload && payload.title || 'PassKiosk Document').slice(0,120),
+      ticket,
+      contentType:'application/pdf',
+      document:pdf
+    }
+  });
+
+  if (!response || response.status !== 'OK' || !response.jobId) {
+    throw new Error('ChromeOS rejected the print job: ' + String(response && response.status || 'UNKNOWN'));
+  }
+
+  const rendererVersion = String(payload && payload.rendererVersion || '').trim();
+
+  await callSource(cfg, 'endpoint.complete', {
+    printJobId,
+    claimId,
+    status:'PRINT_INVOKED',
+    rendererVersion,
+    detail:'Submitted to ChromeOS printer ' + printer.name
+  });
+
+  await chrome.storage.local.set({
+    [SOURCE_JOB_PREFIX + response.jobId]:{
+      printJobId,
+      claimId,
+      rendererVersion,
+      submittedAt:new Date().toISOString()
+    }
+  });
+
+  return {
+    status:response.status,
+    jobId:response.jobId,
+    printerId:printer.id,
+    printerName:printer.name,
+    trimSupported,
+    trimRequested:Boolean(trimRequested && trimSupported),
+    heightMicrons:Number(media.height_microns || requestedHeight)
+  };
+}
+
+async function failSourceJob(payload) {
+  const cfg = await requireSourceConfig();
+  const job = payload && payload.job || {};
+  const printJobId = String(job.printJobId || '').trim();
+  const claimId = String(job.claim && job.claim.claimId || '').trim();
+
+  if (!printJobId || !claimId) throw new Error('Source job is missing printJobId or claimId.');
+
+  return callSource(cfg, 'endpoint.complete', {
+    printJobId,
+    claimId,
+    status:'FAILED',
+    errorCode:String(payload && payload.errorCode || 'SOURCE_FAILED'),
+    errorMessage:String(payload && payload.errorMessage || 'PrintHub failed before print invocation.'),
+    rendererVersion:String(payload && payload.rendererVersion || '')
+  });
+}
+
+async function requireSourceConfig() {
+  const cfg = await sourceConfig();
+  if (!cfg) throw new Error('Managed PassKiosk source is not configured.');
+  return cfg;
+}
+
+async function callSource(cfg, action, payload) {
+  const body = {
+    action,
+    endpointId:cfg.endpointId,
+    endpointKey:cfg.endpointKey,
+    ...(payload || {})
+  };
+
+  const response = await fetch(cfg.endpointUrl, {
+    method:'POST',
+    redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(body)
+  });
+
+  const text = await response.text();
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch (_) {
+    throw new Error('PassKiosk endpoint returned a non-JSON response.');
+  }
+
+  if (!response.ok || !result || result.ok !== true) {
+    throw new Error(String(result && result.error || 'PassKiosk endpoint request failed.'));
+  }
+  return result;
+}
+
+async function resolveBindingPrinter(cfg, bindingKey) {
+  const binding = cfg.bindings[bindingKey];
+  if (!binding || typeof binding !== 'object') {
+    throw new Error('Managed printer binding not found: ' + bindingKey);
+  }
+
+  const expectedUri = String(binding.uri || '').trim();
+  const expectedName = String(binding.name || '').trim();
+  if (!expectedUri && !expectedName) {
+    throw new Error('Binding ' + bindingKey + ' must define uri or name.');
+  }
+
+  const printers = await chrome.printing.getPrinters();
+  let printer = expectedUri ? printers.find(p => String(p.uri || '') === expectedUri) : null;
+  if (!printer && expectedName) printer = printers.find(p => String(p.name || '') === expectedName);
+  if (!printer) {
+    throw new Error('Installed printer for binding ' + bindingKey + ' was not found.');
+  }
+  return printer;
+}
+
+async function handleSourceJobStatus(jobId, status) {
+  if (!['PRINTED','FAILED','CANCELED'].includes(String(status || ''))) return;
+
+  const key = SOURCE_JOB_PREFIX + jobId;
+  const stored = await chrome.storage.local.get(key);
+  const source = stored && stored[key];
+  if (!source) return;
+
+  const cfg = await sourceConfig();
+  if (!cfg) return;
+
+  if (status === 'PRINTED') {
+    await callSource(cfg, 'endpoint.complete', {
+      printJobId:source.printJobId,
+      claimId:source.claimId,
+      status:'PRINTED',
+      rendererVersion:String(source.rendererVersion || '')
+    });
+  } else {
+    await callSource(cfg, 'endpoint.complete', {
+      printJobId:source.printJobId,
+      claimId:source.claimId,
+      status:'FAILED',
+      errorCode:status === 'CANCELED' ? 'CHROME_JOB_CANCELED' : 'CHROME_JOB_FAILED',
+      errorMessage:status === 'CANCELED'
+        ? 'ChromeOS canceled the print job.'
+        : 'ChromeOS reported the print job failed.',
+      rendererVersion:String(source.rendererVersion || '')
+    });
+  }
+
+  await chrome.storage.local.remove(key);
+}
+
+async function reconcileSourceJobs() {
+  const cfg = await sourceConfig();
+  if (!cfg || typeof chrome.printing.getJobStatus !== 'function') return;
+
+  const all = await chrome.storage.local.get(null);
+  const entries = Object.entries(all).filter(([key]) => key.startsWith(SOURCE_JOB_PREFIX));
+
+  for (const [key, source] of entries) {
+    const chromeJobId = key.slice(SOURCE_JOB_PREFIX.length);
+    try {
+      const status = await chrome.printing.getJobStatus(chromeJobId);
+      if (['PRINTED','FAILED','CANCELED'].includes(status)) {
+        await handleSourceJobStatus(chromeJobId, status);
+      }
+    } catch (_) {
+      // Keep the mapping. A later status event or reconciliation may still resolve it.
+    }
+  }
+}
+
+function broadcastJobStatus(jobId, status) {
+  chrome.tabs.query({url:'https://joe4816.github.io/printhub/*'}).then(tabs => {
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      chrome.tabs.sendMessage(tab.id, {
+        type:'PRINTHUB_EVENT',
+        event:'JOB_STATUS',
+        value:{jobId,status}
+      }).catch(() => {});
+    }
+  });
 }
 
 function publicPrinter(p) {
@@ -247,7 +532,6 @@ function micronsToPoints(v) {
 function byteLength(s) {
   return new TextEncoder().encode(s).length;
 }
-
 
 async function submitPdfDocument(printerId, payload) {
   if (!printerId) throw new Error('Choose a printer.');
