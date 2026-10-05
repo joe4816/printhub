@@ -106,7 +106,7 @@
   async function directPrintTest() {
     const printerId = $('bridgePrinter').value;
     const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
-    const lengthMm = clampNumber($('directLengthMm').value, 60, 160, 78);
+    const lengthMm = clampNumber($('directLengthMm').value, 60, 160, 60);
     $('directLengthMm').value = String(lengthMm);
     if (!printerId) return;
 
