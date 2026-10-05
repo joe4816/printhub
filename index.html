@@ -9,7 +9,7 @@
   <link rel="icon" href="assets/printhub-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
   <script defer src="config.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="app.js"></script>\n  <script defer src="production.js"></script>
 </head>
 <body>
   <main class="shell">
@@ -128,14 +128,14 @@
       <article class="card">
         <div class="card-head">
           <h2>Job Sources</h2>
-          <span class="badge badge-neutral">not live yet</span>
+          <span id="sourceBadge" class="badge badge-neutral">managed source · inactive</span>
         </div>
         <div class="source-row">
           <div>
             <strong>PassKiosk</strong>
             <div class="muted small">Endpoint-aware adapter pending</div>
           </div>
-          <span class="state state-idle">NOT POLLING</span>
+          <span id="passKioskSourceState" class="state state-idle">NOT CONFIGURED</span>
         </div>
         <p class="muted small note">Production polling stays disabled until jobs can be routed to a specific endpoint without PrintHub claiming work it cannot render.</p>
       </article>
