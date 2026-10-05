@@ -1,4 +1,4 @@
-const EXTENSION_VERSION='0.2.2';
+const EXTENSION_VERSION='0.3.0';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'PRINTHUB_REQUEST') return;
@@ -41,7 +41,7 @@ async function handleRequest(action, payload) {
   if (action === 'PRINT_TEST') {
     const managed = await managedSettings();
     if (managed.allowTestPrint === false) throw new Error('Test printing is disabled by managed policy.');
-    return submitTestPrint(String(payload.printerId || ''));
+    return submitTestPrint(String(payload.printerId || ''), payload);
   }
 
   throw new Error('Unsupported PrintHub action: ' + action);
@@ -66,7 +66,7 @@ function publicPrinter(p) {
   };
 }
 
-async function submitTestPrint(printerId) {
+async function submitTestPrint(printerId, payload) {
   if (!printerId) throw new Error('Choose a printer.');
 
   const printers = await chrome.printing.getPrinters();
@@ -77,8 +77,9 @@ async function submitTestPrint(printerId) {
   const caps = info && info.capabilities && info.capabilities.printer;
   if (!caps) throw new Error('ChromeOS did not return capabilities for this printer.');
 
+  const requestedHeight = clampNumber(payload && payload.heightMicrons, 60000, 160000, 78000);
   const trimSupported = supportsTrim(caps);
-  const media = chooseMedia(caps);
+  const media = chooseMedia(caps, requestedHeight);
   const ticket = buildTicket(caps, media, trimSupported);
   const widthMicrons = Number(media.width_microns || 80000);
   const heightMicrons = Number(media.height_microns || 78000);
@@ -100,8 +101,15 @@ async function submitTestPrint(printerId) {
     printerId,
     printerName:printer.name,
     trimSupported,
-    trimRequested:trimSupported
+    trimRequested:trimSupported,
+    heightMicrons
   };
+}
+
+function clampNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(n)));
 }
 
 function supportsTrim(caps) {
@@ -113,12 +121,12 @@ function supportsTrim(caps) {
   });
 }
 
-function chooseMedia(caps) {
+function chooseMedia(caps, requestedHeight) {
   const options = caps.media_size && Array.isArray(caps.media_size.option)
     ? caps.media_size.option : [];
 
   if (!options.length) {
-    return {width_microns:80000,height_microns:78000};
+    return {width_microns:80000,height_microns:requestedHeight};
   }
 
   const continuous = options.find(x => x.is_continuous_feed);
@@ -127,7 +135,7 @@ function chooseMedia(caps) {
     const maxH = Number(continuous.max_height_microns || 2000000);
     return {
       width_microns:Number(continuous.width_microns || 80000),
-      height_microns:Math.max(minH, Math.min(78000, maxH))
+      height_microns:Math.max(minH, Math.min(requestedHeight, maxH))
     };
   }
 
@@ -138,7 +146,7 @@ function chooseMedia(caps) {
   const preferred = eighty || options.find(x => x.is_default) || options[0];
   return {
     width_microns:Number(preferred.width_microns || 80000),
-    height_microns:Number(preferred.height_microns || 78000),
+    height_microns:Number(preferred.height_microns || requestedHeight),
     vendor_id:preferred.vendor_id
   };
 }
