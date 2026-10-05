@@ -30,9 +30,7 @@
     $('bridgePrint').addEventListener('click', directPrintTest);
     $('sampleCallPass').addEventListener('click', sampleCallPassTest);
     $('bridgePrinter').addEventListener('change', () => {
-      const disabled = !$('bridgePrinter').value;
-      $('bridgePrint').disabled = disabled;
-      $('sampleCallPass').disabled = disabled;
+      $('bridgePrint').disabled = !$('bridgePrinter').value;
     });
 
     if ('serviceWorker' in navigator) {
@@ -98,7 +96,7 @@
 
       select.disabled = false;
       $('bridgePrint').disabled = true;
-      $('sampleCallPass').disabled = true;
+      $('sampleCallPass').disabled = false;
       $('bridgeResult').textContent = printers.length + ' installed printer(s) returned by ChromeOS.';
       log('Bridge returned ' + printers.length + ' installed printer(s).');
     } catch (err) {
@@ -144,7 +142,10 @@
   async function sampleCallPassTest() {
     const printerId = $('bridgePrinter').value;
     const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
-    if (!printerId) return;
+    if (!printerId) {
+      $('callPassResult').textContent = 'Choose an installed printer above, then press PRINT SAMPLE CALL PASS.';
+      return;
+    }
 
     const doc = makeSampleCallPassPdf();
     $('sampleCallPass').disabled = true;
@@ -171,7 +172,7 @@
       $('callPassResult').textContent = 'Call Pass proof failed: ' + err.message;
       log('Call Pass proof failed: ' + err.message);
     } finally {
-      $('sampleCallPass').disabled = !$('bridgePrinter').value;
+      $('sampleCallPass').disabled = false;
     }
   }
 
