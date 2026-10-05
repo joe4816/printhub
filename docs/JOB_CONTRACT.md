@@ -64,14 +64,14 @@ The routing layer creates two independent jobs. They share a transaction / group
 
 ## ChromeOS endpoint behavior
 
-For `CHROMEOS_BROWSER` endpoints:
+For the current PassKiosk `CHROMEOS_BROWSER` endpoint:
 
-- `bindingKey` should normally be `DEFAULT`;
-- the document is rendered into the browser print surface;
-- `window.print()` sends it to the ChromeOS default printer;
-- the page cannot reliably determine physical printer completion.
+- the document artifact is PDF;
+- the managed PrintHub bridge enumerates ChromeOS printers and submits to the exact selected runtime printer ID;
+- the job ticket carries media geometry and may request trim when the driver exposes it;
+- `window.print()` is retained only as a fallback/default-printer test path.
 
-The backend should therefore distinguish **browser print invoked** from a stronger physical completion signal if one is ever available.
+The source application still selects a logical PrintHub route rather than storing Chrome runtime printer IDs itself.
 
 ## Windows endpoint behavior
 
