@@ -2,7 +2,8 @@
 param(
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'config.json'),
     [switch]$Diagnose,
-    [string]$DryRunJobs = ''
+    [string]$DryRunJobs = '',
+    [string]$RawReceiptTestBinding = ''
 )
 
 Set-StrictMode -Version Latest
@@ -42,6 +43,147 @@ function Get-BindingMap {
     }
 
     return $map
+}
+
+
+function Get-BindingTransport {
+    param($Binding)
+    return ([string]$Binding.transport).Trim().ToUpperInvariant()
+}
+
+function Test-RawTcpTarget {
+    param(
+        [string]$HostName,
+        [int]$Port,
+        [int]$TimeoutMs = 1500
+    )
+
+    if ([string]::IsNullOrWhiteSpace($HostName) -or $Port -lt 1 -or $Port -gt 65535) {
+        return $false
+    }
+
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $async = $client.BeginConnect($HostName, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) {
+            return $false
+        }
+        $client.EndConnect($async)
+        return $client.Connected
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $client.Dispose()
+    }
+}
+
+function Send-RawTcpBytes {
+    param(
+        [string]$HostName,
+        [int]$Port,
+        [byte[]]$Bytes
+    )
+
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $client.Connect($HostName, $Port)
+        $stream = $client.GetStream()
+        try {
+            $stream.Write($Bytes, 0, $Bytes.Length)
+            $stream.Flush()
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+    finally {
+        $client.Dispose()
+    }
+}
+
+function Add-AsciiBytes {
+    param(
+        [System.Collections.Generic.List[byte]]$Buffer,
+        [string]$Text
+    )
+
+    $Buffer.AddRange([System.Text.Encoding]::ASCII.GetBytes($Text))
+}
+
+function New-EscPosReceiptTestBytes {
+    param(
+        [string]$BindingKey,
+        [string]$EndpointLabel
+    )
+
+    $buffer = [System.Collections.Generic.List[byte]]::new()
+    $nl = [Environment]::NewLine
+
+    # ESC @ initialize; ESC a 0 left align; ESC ! 0 normal text.
+    $buffer.AddRange([byte[]](0x1B,0x40))
+    $buffer.AddRange([byte[]](0x1B,0x61,0x00))
+    $buffer.AddRange([byte[]](0x1B,0x21,0x00))
+
+    Add-AsciiBytes -Buffer $buffer -Text ("PRINTHUB RAW TCP TEST" + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text (("Endpoint: {0}" -f $EndpointLabel) + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text (("Binding:  {0}" -f $BindingKey) + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text ("--------------------------------" + $nl)
+
+    # ESC E 1 emphasized title; ESC E 0 off.
+    $buffer.AddRange([byte[]](0x1B,0x45,0x01))
+    Add-AsciiBytes -Buffer $buffer -Text ("CALL PASS" + $nl)
+    $buffer.AddRange([byte[]](0x1B,0x45,0x00))
+
+    Add-AsciiBytes -Buffer $buffer -Text ("STUDENT: TEST STUDENT" + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text ("SEND TO: TEST DESTINATION" + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text ("WHEN: IMMEDIATELY" + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text ("--------------------------------" + $nl)
+    Add-AsciiBytes -Buffer $buffer -Text ("Direct ESC/POS over TCP 9100." + $nl)
+
+    # ESC d 3 feeds three lines; GS V 0 full cut.
+    $buffer.AddRange([byte[]](0x1B,0x64,0x03))
+    $buffer.AddRange([byte[]](0x1D,0x56,0x00))
+
+    return $buffer.ToArray()
+}
+
+function Invoke-RawReceiptTest {
+    param(
+        [string]$BindingKey,
+        $Binding,
+        $Config
+    )
+
+    $transport = Get-BindingTransport -Binding $Binding
+    if ($transport -ne 'RAW_TCP_9100') {
+        Stop-WithMessage -Message ("Binding {0} is {1}, not RAW_TCP_9100." -f $BindingKey, $transport) -ExitCode 6
+    }
+
+    $hostName = [string]$Binding.host
+    $port = if ($Binding.port) { [int]$Binding.port } else { 9100 }
+
+    if ([string]::IsNullOrWhiteSpace($hostName)) {
+        Stop-WithMessage -Message ("Binding {0} is missing host." -f $BindingKey) -ExitCode 6
+    }
+
+    Write-Host ''
+    Write-Host 'PrintHub RAW TCP receipt proof'
+    Write-Host '------------------------------'
+    Write-Host ("Endpoint : {0}" -f $Config.endpointId)
+    Write-Host ("Binding  : {0}" -f $BindingKey)
+    Write-Host ("Target   : {0}:{1}" -f $hostName, $port)
+    Write-Host ''
+
+    if (-not (Test-RawTcpTarget -HostName $hostName -Port $port -TimeoutMs 2000)) {
+        Stop-WithMessage -Message ("Could not connect to {0}:{1}." -f $hostName, $port) -ExitCode 7
+    }
+
+    $bytes = New-EscPosReceiptTestBytes -BindingKey $BindingKey -EndpointLabel ([string]$Config.label)
+    Send-RawTcpBytes -HostName $hostName -Port $port -Bytes $bytes
+
+    Write-Host ("RAW TEST SENT: {0} bytes to {1}:{2}. Confirm paper output and cut." -f $bytes.Length, $hostName, $port)
 }
 
 function Test-DryRunJobs {
