@@ -272,6 +272,10 @@
     return new TextEncoder().encode(value).length;
   }
 
+  function micronsToPoints(value) {
+    return Number(value || 0) * 72 / 25400;
+  }
+
   function bytesToBase64(bytes) {
     let binary = '';
     const chunk = 0x8000;
