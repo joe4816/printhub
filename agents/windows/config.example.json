@@ -5,8 +5,9 @@
   "pollIntervalSeconds": 2,
   "bindings": {
     "RECEIPT": {
-      "printerName": "AP Receipt Printer",
-      "transport": "WINDOWS_NAMED_PRINTER"
+      "transport": "RAW_TCP_9100",
+      "host": "192.0.2.10",
+      "port": 9100
     },
     "FILE": {
       "printerName": "AP Kyocera",
