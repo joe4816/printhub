@@ -1,4 +1,4 @@
-const EXTENSION_VERSION='0.2.0';
+const EXTENSION_VERSION='0.2.1';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'PRINTHUB_REQUEST') return;
@@ -77,11 +77,12 @@ async function submitTestPrint(printerId) {
   const caps = info && info.capabilities && info.capabilities.printer;
   if (!caps) throw new Error('ChromeOS did not return capabilities for this printer.');
 
+  const trimSupported = supportsTrim(caps);
   const media = chooseMedia(caps);
-  const ticket = buildTicket(caps, media);
+  const ticket = buildTicket(caps, media, trimSupported);
   const widthMicrons = Number(media.width_microns || 80000);
   const heightMicrons = Number(media.height_microns || 140000);
-  const pdf = makeTestPdf(printer.name, widthMicrons, heightMicrons);
+  const pdf = makeTestPdf(printer.name, widthMicrons, heightMicrons, trimSupported);
 
   const response = await chrome.printing.submitJob({
     job:{
@@ -97,8 +98,19 @@ async function submitTestPrint(printerId) {
     status:response && response.status,
     jobId:response && response.jobId ? response.jobId : '',
     printerId,
-    printerName:printer.name
+    printerName:printer.name,
+    trimSupported,
+    trimRequested:trimSupported
   };
+}
+
+function supportsTrim(caps) {
+  const vendor = Array.isArray(caps.vendor_capability) ? caps.vendor_capability : [];
+  return vendor.some(item => {
+    const id = String(item && item.id || '').toLowerCase();
+    const name = String(item && item.display_name || '').toLowerCase();
+    return id === 'finishings/11' || name === 'finishings/11' || id === 'finishings';
+  });
 }
 
 function chooseMedia(caps) {
@@ -131,27 +143,30 @@ function chooseMedia(caps) {
   };
 }
 
-function buildTicket(caps, media) {
+function buildTicket(caps, media, trimSupported) {
   const color = defaultOption(caps.color, {type:'STANDARD_MONOCHROME'});
   const duplex = defaultOption(caps.duplex, {type:'NO_DUPLEX'});
   const orientation = defaultOption(caps.page_orientation, {type:'PORTRAIT'});
   const dpi = defaultOption(caps.dpi, {horizontal_dpi:203,vertical_dpi:203});
 
-  return {
-    version:'1.0',
-    print:{
-      color:{type:color.type || 'STANDARD_MONOCHROME'},
-      duplex:{type:duplex.type || 'NO_DUPLEX'},
-      page_orientation:{type:orientation.type || 'PORTRAIT'},
-      copies:{copies:1},
-      dpi:{
-        horizontal_dpi:Number(dpi.horizontal_dpi || 203),
-        vertical_dpi:Number(dpi.vertical_dpi || 203)
-      },
-      media_size:media,
-      collate:{collate:false}
-    }
+  const print = {
+    color:{type:color.type || 'STANDARD_MONOCHROME'},
+    duplex:{type:duplex.type || 'NO_DUPLEX'},
+    page_orientation:{type:orientation.type || 'PORTRAIT'},
+    copies:{copies:1},
+    dpi:{
+      horizontal_dpi:Number(dpi.horizontal_dpi || 203),
+      vertical_dpi:Number(dpi.vertical_dpi || 203)
+    },
+    media_size:media,
+    collate:{collate:false}
   };
+
+  if (trimSupported) {
+    print.vendor_ticket_item = [{id:'finishings', value:'trim'}];
+  }
+
+  return {version:'1.0', print};
 }
 
 function defaultOption(capability, fallback) {
@@ -159,7 +174,7 @@ function defaultOption(capability, fallback) {
   return options.find(x => x.is_default) || options[0] || fallback;
 }
 
-function makeTestPdf(printerName, widthMicrons, heightMicrons) {
+function makeTestPdf(printerName, widthMicrons, heightMicrons, trimSupported) {
   const widthPt = Math.max(144, micronsToPoints(widthMicrons));
   const heightPt = Math.max(180, micronsToPoints(heightMicrons));
   const lines = [
@@ -170,7 +185,7 @@ function makeTestPdf(printerName, widthMicrons, heightMicrons) {
     'Time: ' + new Date().toLocaleString(),
     '',
     'Selected by printer ID.',
-    'No default-printer policy used.'
+    trimSupported ? 'Cut: trim requested.' : 'Cut: driver does not expose trim.'
   ];
 
   const content = pdfTextStream(lines, 12, Math.max(30, heightPt - 24));
