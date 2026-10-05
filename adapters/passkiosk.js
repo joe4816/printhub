@@ -18,6 +18,7 @@ export function passKioskDocumentModel(transaction, options = {}) {
     common.fields.push(
       field('From', tx['From']),
       field('To', tx['To']),
+      {label:'Excused', value:tx['Excused'] === true ? 'Yes' : 'No'},
       field('Reason', tx['Reason(s)']),
       field('Issued', displayDateTime(tx['Created At']))
     );
