@@ -3,6 +3,6 @@
   <app appid="dfdadlbllhjoadgkdlpgghfdklbhlpem">
     <updatecheck
       codebase="https://joe4816.github.io/printhub/printhub-bridge.crx"
-      version="0.2.1" />
+      version="0.2.2" />
   </app>
 </gupdate>
