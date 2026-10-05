@@ -21,6 +21,13 @@
         running = false;
         return;
       }
+      if (!status.enabled) {
+        setSourceState('DISABLED', 'idle');
+        setSourceBadge('managed source · authenticated');
+        log('PassKiosk source is authenticated but production polling is disabled server-side.');
+        running = false;
+        return;
+      }
       setSourceBadge('managed source · authenticated');
       setSourceState('POLLING', 'ok');
       log('PassKiosk production polling enabled for ' + status.endpointId + '.');
