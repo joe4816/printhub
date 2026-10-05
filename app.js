@@ -205,7 +205,11 @@
     const bottomPt = 16;
     let contentPt = 0;
     for (const row of rows) contentPt += row.gap || (row.rule ? 8 : 11.5);
-    const minPt = micronsToPoints(60000);
+    // Keep receipt PDFs physically portrait. A content-driven page around
+    // 79 mm tall is slightly shorter than the 80 mm roll width, which some
+    // ChromeOS/CUPS pipelines auto-rotate. Preserve dynamic height, but never
+    // allow a receipt page shorter than 90 mm.
+    const minPt = micronsToPoints(90000);
     const heightPt = Math.max(minPt, topPt + contentPt + bottomPt);
     const heightMicrons = Math.ceil(heightPt * 25400 / 72 / 1000) * 1000;
 
