@@ -246,12 +246,29 @@ function Test-DryRunJobs {
         }
         else {
             $binding = $Bindings[$bindingKey]
-            $printerName = [string]$binding.printerName
-            $printer = $InstalledPrinters | Where-Object { $_.Name -eq $printerName } | Select-Object -First 1
+            $transport = Get-BindingTransport -Binding $binding
 
-            if (-not $printer) {
+            if ($transport -eq 'WINDOWS_NAMED_PRINTER') {
+                $printerName = [string]$binding.printerName
+                $printer = $InstalledPrinters | Where-Object { $_.Name -eq $printerName } | Select-Object -First 1
+
+                if (-not $printer) {
+                    $valid = $false
+                    $reason = 'Configured printer is not installed'
+                }
+            }
+            elseif ($transport -eq 'RAW_TCP_9100') {
+                $hostName = [string]$binding.host
+                $port = if ($binding.port) { [int]$binding.port } else { 9100 }
+
+                if ([string]::IsNullOrWhiteSpace($hostName) -or $port -lt 1 -or $port -gt 65535) {
+                    $valid = $false
+                    $reason = 'RAW binding has invalid host/port'
+                }
+            }
+            else {
                 $valid = $false
-                $reason = 'Configured printer is not installed'
+                $reason = 'Unsupported transport'
             }
         }
 
@@ -277,7 +294,7 @@ function Test-DryRunJobs {
 
     Write-Host ''
     if ($allValid) {
-        Write-Host 'DRY RUN RESULT: Every sample job can be resolved to this endpoint and an installed printer.'
+        Write-Host 'DRY RUN RESULT: Every sample job can be resolved to this endpoint and a supported transport.'
         return $true
     }
 
@@ -325,18 +342,45 @@ $allReady = $true
 
 foreach ($bindingKey in ($bindings.Keys | Sort-Object)) {
     $binding = $bindings[$bindingKey]
-    $printerName = [string]$binding.printerName
-    $match = $printers | Where-Object { $_.Name -eq $printerName } | Select-Object -First 1
+    $transport = Get-BindingTransport -Binding $binding
 
-    if (-not $match) {
+    if ($transport -eq 'WINDOWS_NAMED_PRINTER') {
+        $printerName = [string]$binding.printerName
+        $match = $printers | Where-Object { $_.Name -eq $printerName } | Select-Object -First 1
+        $ready = [bool]$match
+        $target = $printerName
+        $detail = if ($ready) { 'Installed' } else { 'Printer not installed' }
+    }
+    elseif ($transport -eq 'RAW_TCP_9100') {
+        $hostName = [string]$binding.host
+        $port = if ($binding.port) { [int]$binding.port } else { 9100 }
+        $configured = -not [string]::IsNullOrWhiteSpace($hostName) -and $port -ge 1 -and $port -le 65535
+        $reachable = $false
+
+        if ($configured) {
+            $reachable = Test-RawTcpTarget -HostName $hostName -Port $port
+        }
+
+        $ready = [bool]($configured -and $reachable)
+        $target = if ($configured) { ("{0}:{1}" -f $hostName, $port) } else { '(invalid host/port)' }
+        $detail = if (-not $configured) { 'Invalid host/port' } elseif ($reachable) { 'TCP reachable' } else { 'TCP not reachable' }
+    }
+    else {
+        $ready = $false
+        $target = ''
+        $detail = 'Unsupported transport'
+    }
+
+    if (-not $ready) {
         $allReady = $false
     }
 
     $rows += [pscustomobject]@{
         Binding   = $bindingKey
-        Transport = [string]$binding.transport
-        Printer   = $printerName
-        Installed = [bool]$match
+        Transport = $transport
+        Target    = $target
+        Ready     = $ready
+        Detail    = $detail
     }
 }
 
@@ -344,10 +388,19 @@ $rows | Format-Table -AutoSize
 
 Write-Host ''
 if ($allReady) {
-    Write-Host 'RESULT: All configured printer bindings exist on this Windows machine.'
+    Write-Host 'RESULT: All configured bindings are ready.'
 }
 else {
-    Write-Warning 'RESULT: One or more configured printer names do not exactly match an installed Windows printer.'
+    Write-Warning 'RESULT: One or more configured bindings are not ready.'
+}
+
+if (-not [string]::IsNullOrWhiteSpace($RawReceiptTestBinding)) {
+    if (-not $bindings.ContainsKey($RawReceiptTestBinding)) {
+        Stop-WithMessage -Message ("Unknown binding: {0}" -f $RawReceiptTestBinding) -ExitCode 6
+    }
+
+    Invoke-RawReceiptTest -BindingKey $RawReceiptTestBinding -Binding $bindings[$RawReceiptTestBinding] -Config $config
+    exit 0
 }
 
 if (-not [string]::IsNullOrWhiteSpace($DryRunJobs)) {
@@ -368,6 +421,6 @@ if ($Diagnose) {
     exit 4
 }
 
-Write-Warning 'Production queue polling and physical printing are intentionally disabled in this foundation build.'
-Write-Host 'Use -Diagnose or -DryRunJobs while the generic endpoint protocol is finalized.'
+Write-Warning 'Production queue polling remains disabled. The agent currently supports diagnostics, dry-run validation, and deliberate RAW TCP receipt proofs.'
+Write-Host 'Use -Diagnose, -DryRunJobs, or -RawReceiptTestBinding while backend queue migration is finalized.'
 exit 3
