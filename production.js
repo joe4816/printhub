@@ -13,6 +13,15 @@
     if (running || stopped) return;
     running = true;
     try {
+      const bridge = await bridgeRequest('PING', {}, 5000);
+      if (!versionAtLeast(String(bridge.version || '0.0.0'), '0.5.0')) {
+        setSourceState('BRIDGE UPDATE NEEDED', 'idle');
+        setSourceBadge('managed source · staged');
+        log('PassKiosk production source requires ChromeOS bridge v0.5.0 or later; current bridge is v' + String(bridge.version || 'unknown') + '.');
+        running = false;
+        return;
+      }
+
       const status = await bridgeRequest('SOURCE_STATUS', {}, 5000);
       if (!status.configured) {
         setSourceState('NOT CONFIGURED', 'idle');
@@ -112,6 +121,18 @@
     pending.delete(msg.id);
     if (msg.ok) item.resolve(msg.value || {});
     else item.reject(new Error(msg.error || 'Bridge request failed.'));
+  }
+
+  function versionAtLeast(actual, required) {
+    const a = String(actual || '').split('.').map(x => Number(x) || 0);
+    const r = String(required || '').split('.').map(x => Number(x) || 0);
+    for (let i = 0; i < Math.max(a.length, r.length); i++) {
+      const av = a[i] || 0;
+      const rv = r[i] || 0;
+      if (av > rv) return true;
+      if (av < rv) return false;
+    }
+    return true;
   }
 
   function setSourceState(text, tone) {
