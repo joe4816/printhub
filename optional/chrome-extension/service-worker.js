@@ -85,7 +85,9 @@ async function sourceConfig() {
   const endpointKey = String(cfg.endpointKey || '').trim();
   const bindings = cfg.bindings && typeof cfg.bindings === 'object' ? cfg.bindings : {};
 
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl)) {
+  if (!/^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+\/)?macros?\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl) &&
+      !/^https:\/\/script\.google\.com\/a\/macros\/[^/]+\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl) &&
+      !/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl)) {
     throw new Error('Managed source endpointUrl must be an Apps Script /exec URL.');
   }
   if (!endpointId) throw new Error('Managed source endpointId is required.');
@@ -242,6 +244,7 @@ async function callSource(cfg, action, payload) {
   const response = await fetch(cfg.endpointUrl, {
     method:'POST',
     redirect:'follow',
+    credentials:'include',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(body)
   });
