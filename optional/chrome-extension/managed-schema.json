@@ -13,7 +13,7 @@
     },
     "sourceConfigJson": {
       "title": "Job source configuration JSON",
-      "description": "Reserved for future source adapters. Secrets must be supplied only through managed policy.",
+      "description": "Authenticated production source configuration. Secrets must be supplied only through managed policy and never committed to source.",
       "type": "string"
     }
   }
