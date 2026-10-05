@@ -1,12 +1,11 @@
 # Windows agent scaffold
 
-The Windows side is still non-production, but it now supports three deliberate modes:
+The Windows side is still non-production, but it now supports two safe modes:
 
 - printer / binding diagnostics;
-- endpoint-job dry-run validation;
-- a manual RAW TCP / ESC-POS receipt proof for a configured binding.
+- endpoint-job dry-run validation.
 
-It does **not** poll the production backend or print production queue jobs yet.
+It does **not** connect to a backend and it does **not** print production jobs.
 
 ## First local setup
 
@@ -44,32 +43,3 @@ No physical print call occurs.
 `config.json`, runtime state, local secrets, and logs are ignored by Git.
 
 The checked-in `sample-jobs.json` contains fake development data only.
-
-
-## RAW TCP receipt proof
-
-A receipt binding may use:
-
-```json
-{
-  "transport": "RAW_TCP_9100",
-  "host": "192.0.2.10",
-  "port": 9100
-}
-```
-
-The agent diagnostics test whether that TCP target is reachable without sending print data.
-
-To deliberately send one synthetic ESC/POS receipt and cut it:
-
-```powershell
-.\PrintHubAgent.ps1 -RawReceiptTestBinding RECEIPT
-```
-
-This path bypasses PDF/page geometry entirely:
-
-```text
-ESC/POS bytes -> TCP 9100 -> receipt printer -> cut
-```
-
-It is intentionally a manual proof only. Production queue polling remains disabled until the endpoint authentication and claim/complete protocol are wired.
