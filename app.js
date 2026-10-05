@@ -114,11 +114,16 @@
 
     try {
       const result = await bridgeRequest('PRINT_TEST', {printerId}, 15000);
+      const cutNote = result.trimSupported
+        ? ' · CUT: trim requested'
+        : ' · CUT: not exposed by current ChromeOS driver';
       $('bridgeResult').textContent =
         'Direct submit returned ' + (result.status || 'UNKNOWN') +
         (result.jobId ? ' · job ' + result.jobId : '') +
-        '. Confirm the physical output.';
-      log('Direct print submit returned ' + (result.status || 'UNKNOWN') + ' for ' + (result.printerName || printerName) + '.');
+        cutNote + '. Confirm the physical output.';
+      log('Direct print submit returned ' + (result.status || 'UNKNOWN') +
+        ' for ' + (result.printerName || printerName) +
+        (result.trimSupported ? '; trim requested.' : '; trim capability not exposed.'));
     } catch (err) {
       $('bridgeResult').textContent = 'Direct print failed: ' + err.message;
       log('Direct print failed: ' + err.message);
