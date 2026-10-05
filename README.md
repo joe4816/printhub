@@ -32,15 +32,17 @@ A single transaction can expand into multiple print jobs, so a user can select a
 
 ## Endpoint types
 
-### ChromeOS browser endpoint — first implementation
+### ChromeOS browser endpoint — current PassKiosk path
 
 A dedicated managed Chromebook auto-launches:
 
 `https://joe4816.github.io/printhub/`
 
-The endpoint prints with `window.print()`. ChromeOS policy supplies the printer available to that device/group, the default printer, and silent printing.
+The current managed ChromeOS bridge uses `chrome.printing` to enumerate the printers visible to the kiosk and submit a PDF to one exact runtime printer ID. Exact selection, silent submission, and cutter invocation have been physically proven on both receipt printers.
 
-The page does **not** need a Chrome extension for this one-default-printer design.
+`window.print()` remains only as a fallback/default-printer test path.
+
+For the PassKiosk receipt path, do **not** introduce a Windows relay or PC dependency unless that architecture is explicitly revisited. Receipt layout/orientation issues are to be solved in the PrintHub web/PDF renderer while keeping the Chromebook endpoint.
 
 ### Windows agent endpoint — planned
 
@@ -83,7 +85,7 @@ PrintHub now includes:
 - a browser routing simulator;
 - a printer-picker UI prototype;
 - an additive PassKiosk migration plan;
-- the original Chrome extension experiment preserved under `optional/chrome-extension/`.
+- a managed ChromeOS exact-printer bridge under `optional/chrome-extension/`.
 
 **Production queue polling remains deliberately disabled.** The current PassKiosk worker returns application-specific jobs and is not endpoint-aware yet. Live polling should wait until endpoint authentication, queue filtering, rendering, and callback behavior are migrated deliberately.
 
