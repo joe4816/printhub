@@ -60,29 +60,30 @@ Two selected routes create two independent print jobs tied to the same transacti
 
 ### CHROMEOS_BROWSER
 
-A dedicated managed Chromebook auto-launches PrintHub.
+The current first implementation.
 
-Two ChromeOS transports are now proven:
+A dedicated managed Chromebook auto-launches PrintHub. The endpoint:
 
-1. **browser-default fallback** — `window.print()` plus ChromeOS silent/default-printer policy;
-2. **managed exact-printer bridge** — the PrintHub extension enumerates ChromeOS printers with `chrome.printing` and submits a PDF to one exact runtime printer ID.
+1. polls only its own endpoint queue (future adapter);
+2. renders the assigned job;
+3. calls `window.print()`;
+4. relies on ChromeOS policy for silent printing and the device's default printer.
 
-The exact-printer bridge is useful for office/document printers and as a receipt fallback, but receipt PDFs still inherit page-orientation and page-geometry behavior from ChromeOS/PPD handling.
+The web page does not enumerate or select physical printers. This is a deliberate constraint that removes the Chrome extension requirement.
 
-Raw ESC/POS over TCP is therefore not the preferred ChromeOS receipt transport.
+A ChromeOS browser endpoint should normally have exactly one intended default physical printer.
 
 ### WINDOWS_AGENT
 
 A local Windows service / agent.
 
-This endpoint can support more than one physical printer and more than one transport.
+This endpoint can support more than one physical printer because each route binding can name a Windows-installed printer explicitly.
 
-Current binding modes are:
+This is the intended path for:
 
-- `WINDOWS_NAMED_PRINTER` for ordinary Windows print queues;
-- `RAW_TCP_9100` for compatible network receipt printers.
-
-The RAW path sends ESC/POS bytes directly to the printer and therefore avoids PDF page size/orientation issues. It is the preferred receipt transport when an always-on Windows PrintHub agent can reach the printer.
+- USB-only printers;
+- printers already attached to a Windows workstation;
+- one Windows machine that must service multiple local print queues.
 
 See `WINDOWS_AGENT.md`.
 
@@ -114,21 +115,3 @@ The generic endpoint job should then carry the rendered document plus print meta
 The current PassKiosk worker returns application-specific document snapshots. Therefore automatic production polling remains disabled.
 
 Before PrintHub claims PassKiosk jobs, PassKiosk must gain an endpoint-aware handoff and a deliberate rendering boundary. That change should be made only after this routing model is accepted.
-
-
-## Preferred split transport
-
-For the currently tested school environment, the preferred production shape is:
-
-```text
-PassKiosk / other source
-        |
-        v
-logical PrintHub route
-        |
-        +--> receipt route --> Windows agent --> ESC/POS --> TCP 9100 --> receipt printer
-        |
-        +--> file route ----> ChromeOS bridge or Windows queue --> PDF --> office printer
-```
-
-The source application still selects a logical route, never a printer IP or runtime Chrome printer ID. Physical transport details remain inside PrintHub endpoint bindings.
