@@ -60,18 +60,18 @@ Two selected routes create two independent print jobs tied to the same transacti
 
 ### CHROMEOS_BROWSER
 
-The current first implementation.
+This is the current PassKiosk receipt endpoint.
 
-A dedicated managed Chromebook auto-launches PrintHub. The endpoint:
+A dedicated managed Chromebook auto-launches PrintHub. The managed PrintHub bridge:
 
-1. polls only its own endpoint queue (future adapter);
-2. renders the assigned job;
-3. calls `window.print()`;
-4. relies on ChromeOS policy for silent printing and the device's default printer.
+1. enumerates ChromeOS printers with `chrome.printing.getPrinters()`;
+2. receives the exact selected runtime printer ID from PrintHub;
+3. submits a PDF with `chrome.printing.submitJob()`;
+4. requests the driver's trim finishing option when exposed.
 
-The web page does not enumerate or select physical printers. This is a deliberate constraint that removes the Chrome extension requirement.
+This exact-printer path has been physically proven on both receipt printers, including automatic cutting. `window.print()` remains a fallback/default-printer test path only.
 
-A ChromeOS browser endpoint should normally have exactly one intended default physical printer.
+For the PassKiosk receipt workflow, the Chromebook bridge is the canonical transport. Do not add a Windows/PC relay dependency unless that decision is explicitly revisited.
 
 ### WINDOWS_AGENT
 
