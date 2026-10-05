@@ -1,6 +1,6 @@
 window.PRINTHUB_CONFIG = Object.freeze({
   appName: 'PrintHub',
-  build: '0.6.2-callpass-pdf-fix',
+  build: '0.6.3-receipt-portrait-fix',
   endpointType: 'CHROMEOS_BROWSER',
   unassignedEndpointId: 'PH-UNASSIGNED',
   defaultLabel: 'Unassigned PrintHub',
