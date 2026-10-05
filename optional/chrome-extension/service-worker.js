@@ -1,4 +1,4 @@
-const EXTENSION_VERSION='0.3.0';
+const EXTENSION_VERSION='0.4.0';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'PRINTHUB_REQUEST') return;
@@ -42,6 +42,10 @@ async function handleRequest(action, payload) {
     const managed = await managedSettings();
     if (managed.allowTestPrint === false) throw new Error('Test printing is disabled by managed policy.');
     return submitTestPrint(String(payload.printerId || ''), payload);
+  }
+
+  if (action === 'PRINT_PDF') {
+    return submitPdfDocument(String(payload.printerId || ''), payload);
   }
 
   throw new Error('Unsupported PrintHub action: ' + action);
@@ -242,4 +246,55 @@ function micronsToPoints(v) {
 
 function byteLength(s) {
   return new TextEncoder().encode(s).length;
+}
+
+
+async function submitPdfDocument(printerId, payload) {
+  if (!printerId) throw new Error('Choose a printer.');
+
+  const printers = await chrome.printing.getPrinters();
+  const printer = printers.find(p => p.id === printerId);
+  if (!printer) throw new Error('The selected printer is no longer installed.');
+
+  const encoded = String(payload && payload.pdfBase64 || '');
+  if (!encoded) throw new Error('PDF payload is required.');
+  if (encoded.length > 4000000) throw new Error('PDF payload is too large for the PrintHub bridge.');
+
+  const info = await chrome.printing.getPrinterInfo(printerId);
+  const caps = info && info.capabilities && info.capabilities.printer;
+  if (!caps) throw new Error('ChromeOS did not return capabilities for this printer.');
+
+  const requestedHeight = clampNumber(payload && payload.heightMicrons, 60000, 500000, 100000);
+  const trimSupported = supportsTrim(caps);
+  const trimRequested = payload && payload.trim !== false;
+  const media = chooseMedia(caps, requestedHeight);
+  const ticket = buildTicket(caps, media, trimRequested && trimSupported);
+  const pdf = base64ToBlob(encoded, 'application/pdf');
+
+  const response = await chrome.printing.submitJob({
+    job:{
+      printerId,
+      title:String(payload && payload.title || 'PrintHub Document').slice(0,120),
+      ticket,
+      contentType:'application/pdf',
+      document:pdf
+    }
+  });
+
+  return {
+    status:response && response.status,
+    jobId:response && response.jobId ? response.jobId : '',
+    printerId,
+    printerName:printer.name,
+    trimSupported,
+    trimRequested:Boolean(trimRequested && trimSupported),
+    heightMicrons:Number(media.height_microns || requestedHeight)
+  };
+}
+
+function base64ToBlob(base64, type) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], {type});
 }
