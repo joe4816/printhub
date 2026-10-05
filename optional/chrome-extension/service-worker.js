@@ -175,14 +175,10 @@ async function submitSourceJob(payload) {
 
   const rendererVersion = String(payload && payload.rendererVersion || '').trim();
 
-  await callSource(cfg, 'endpoint.complete', {
-    printJobId,
-    claimId,
-    status:'PRINT_INVOKED',
-    rendererVersion,
-    detail:'Submitted to ChromeOS printer ' + printer.name
-  });
-
+  // Persist the source mapping before any network callback. ChromeOS can move
+  // a small receipt job to PRINTED very quickly, and the status event must be
+  // able to resolve the source claim even if it fires while the callback is
+  // still in flight.
   await chrome.storage.local.set({
     [SOURCE_JOB_PREFIX + response.jobId]:{
       printJobId,
@@ -190,6 +186,14 @@ async function submitSourceJob(payload) {
       rendererVersion,
       submittedAt:new Date().toISOString()
     }
+  });
+
+  await callSource(cfg, 'endpoint.complete', {
+    printJobId,
+    claimId,
+    status:'PRINT_INVOKED',
+    rendererVersion,
+    detail:'Submitted to ChromeOS printer ' + printer.name
   });
 
   return {
