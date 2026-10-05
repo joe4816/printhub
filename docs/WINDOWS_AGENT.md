@@ -59,19 +59,13 @@ A PDF-capable local renderer will be needed to submit a ready-to-print PDF to an
 
 The renderer implementation has not been selected yet; the contract intentionally does not depend on one specific third-party executable.
 
-### RAW_TCP_9100
+### RAW
 
-For compatible network receipt printers.
+For printers where the source adapter intentionally produces printer-ready bytes, such as ESC/POS output for a compatible receipt printer.
 
-A binding specifies a host and port (normally 9100). The agent opens a TCP socket and sends printer-ready ESC/POS bytes directly to the device. No PDF, Windows spooler, or page-orientation layer is involved.
+The agent can eventually submit raw bytes directly to a compatible named Windows spooler queue.
 
-The current agent includes a deliberate manual proof:
-
-```powershell
-.\PrintHubAgent.ps1 -RawReceiptTestBinding RECEIPT
-```
-
-That proof emits a synthetic ESC/POS receipt, feeds a short buffer, and requests a full cut.
+This should only be enabled for a route whose renderer deliberately emits data compatible with that printer.
 
 ## Current safe implementation
 
@@ -108,10 +102,8 @@ The Windows agent does not yet:
 - poll a production server;
 - possess a production endpoint credential;
 - claim live jobs;
-- submit production PDFs to Windows;
-- submit production RAW receipt jobs from the queue;
+- submit PDFs to Windows;
+- submit RAW receipt bytes;
 - report live completion / failure callbacks.
-
-It **can** now validate RAW TCP bindings and deliberately send a manual ESC/POS proof to one configured receipt target.
 
 Those pieces should be enabled only after the endpoint protocol and PassKiosk migration are finalized and the real printer environment has been inspected.
