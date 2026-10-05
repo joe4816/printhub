@@ -1,4 +1,4 @@
-const CACHE='printhub-shell-v2';
+const CACHE='printhub-shell-v3';
 const ASSETS=['./','./index.html','./styles.css','./config.js','./app.js','./manifest.webmanifest','./assets/printhub-icon.svg'];
 
 self.addEventListener('install', event => {
