@@ -56,13 +56,17 @@
           <h2>Direct Printer Test</h2>
           <span class="badge">bridge · exact destination</span>
         </div>
-        <p class="muted">This is the multi-printer proof. It asks the managed ChromeOS bridge for the printers visible to this Chromebook, then submits a synthetic PDF directly to the selected printer ID. No production queue is touched.</p>
-        <div class="test-row bridge-row">
+        <p class="muted">This is the multi-printer proof. The test receipt length is adjustable here, so spacing can be tuned without repacking the ChromeOS bridge.</p>
+        <div class="test-row bridge-controls">
           <label>
             <span>Installed printer</span>
             <select id="bridgePrinter" disabled>
               <option value="">Bridge not detected</option>
             </select>
+          </label>
+          <label>
+            <span>Receipt length (mm)</span>
+            <input id="directLengthMm" type="number" min="60" max="160" step="1" value="78" inputmode="numeric">
           </label>
           <div class="button-row">
             <button id="refreshPrinters" class="ghost" type="button">REFRESH PRINTERS</button>
