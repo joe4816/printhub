@@ -28,8 +28,11 @@
     $('clearLog').addEventListener('click', () => $('activityLog').innerHTML = '');
     $('refreshPrinters').addEventListener('click', refreshBridgePrinters);
     $('bridgePrint').addEventListener('click', directPrintTest);
+    $('sampleCallPass').addEventListener('click', sampleCallPassTest);
     $('bridgePrinter').addEventListener('change', () => {
-      $('bridgePrint').disabled = !$('bridgePrinter').value;
+      const disabled = !$('bridgePrinter').value;
+      $('bridgePrint').disabled = disabled;
+      $('sampleCallPass').disabled = disabled;
     });
 
     if ('serviceWorker' in navigator) {
@@ -64,6 +67,7 @@
       $('bridgeResult').textContent = 'Bridge not detected. Default-printer mode is still available.';
       $('bridgePrinter').disabled = true;
       $('bridgePrint').disabled = true;
+      $('sampleCallPass').disabled = true;
       log('ChromeOS direct-print bridge not detected; using default-printer fallback.');
     }
   }
@@ -80,6 +84,7 @@
         select.append(new Option('No installed printers returned', ''));
         select.disabled = true;
         $('bridgePrint').disabled = true;
+        $('sampleCallPass').disabled = true;
         $('bridgeResult').textContent = 'Bridge is connected, but ChromeOS returned no installed printers.';
         log('Bridge returned zero printers.');
         return;
@@ -93,6 +98,7 @@
 
       select.disabled = false;
       $('bridgePrint').disabled = true;
+      $('sampleCallPass').disabled = true;
       $('bridgeResult').textContent = printers.length + ' installed printer(s) returned by ChromeOS.';
       log('Bridge returned ' + printers.length + ' installed printer(s).');
     } catch (err) {
@@ -133,6 +139,145 @@
     } finally {
       $('bridgePrint').disabled = !$('bridgePrinter').value;
     }
+  }
+
+  async function sampleCallPassTest() {
+    const printerId = $('bridgePrinter').value;
+    const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
+    if (!printerId) return;
+
+    const doc = makeSampleCallPassPdf();
+    $('sampleCallPass').disabled = true;
+    $('callPassResult').textContent = 'Submitting Call Pass proof to ' + printerName + '…';
+    log('PassKiosk Call Pass proof requested for ' + printerName + ' at ' + Math.round(doc.heightMicrons / 1000) + ' mm.');
+
+    try {
+      const result = await bridgeRequest('PRINT_PDF', {
+        printerId,
+        title:'PassKiosk Call Pass Proof',
+        pdfBase64:doc.pdfBase64,
+        heightMicrons:doc.heightMicrons,
+        trim:true
+      }, 15000);
+
+      $('callPassResult').textContent =
+        'Call Pass submit returned ' + (result.status || 'UNKNOWN') +
+        ' · ' + Math.round((result.heightMicrons || doc.heightMicrons) / 1000) + ' mm' +
+        (result.trimRequested ? ' · CUT requested' : ' · CUT unavailable') +
+        '. Confirm the physical output.';
+      log('Call Pass proof submit returned ' + (result.status || 'UNKNOWN') +
+        ' for ' + (result.printerName || printerName) + '.');
+    } catch (err) {
+      $('callPassResult').textContent = 'Call Pass proof failed: ' + err.message;
+      log('Call Pass proof failed: ' + err.message);
+    } finally {
+      $('sampleCallPass').disabled = !$('bridgePrinter').value;
+    }
+  }
+
+  function makeSampleCallPassPdf() {
+    const widthMicrons = 80000;
+    const rows = [
+      {text:'P3   Rm 214   Mr. Lind   for   JORDAN SMITH', size:7, bold:true},
+      {rule:true},
+      {text:'BECKER MIDDLE SCHOOL', size:10, bold:true, x:43},
+      {text:'CALL PASS', size:15, bold:true, x:72},
+      {rule:true},
+      {text:'SEND STUDENT TO:', size:9, bold:true},
+      {text:'Back Office / Counseling Office', size:9},
+      {text:'L. Siqueiros', size:10, bold:true},
+      {gap:4},
+      {text:'IMMEDIATELY', size:10, bold:true},
+      {text:'AT 9:15 AM', size:10, bold:true},
+      {gap:4},
+      {text:'GOING HOME', size:10, bold:true},
+      {text:'PARENT IS WAITING', size:10, bold:true},
+      {gap:4},
+      {text:'Requested By:', size:8},
+      {text:'L. Siqueiros', size:10, bold:true, x:75},
+      {gap:4},
+      {text:'Sent back to class by:', size:8},
+      {text:'________________________  @  ________', size:8}
+    ];
+
+    const topPt = 14;
+    const bottomPt = 16;
+    let contentPt = 0;
+    for (const row of rows) contentPt += row.gap || (row.rule ? 8 : 11.5);
+    const minPt = micronsToPoints(60000);
+    const heightPt = Math.max(minPt, topPt + contentPt + bottomPt);
+    const heightMicrons = Math.ceil(heightPt * 25400 / 72 / 1000) * 1000;
+
+    let y = micronsToPoints(heightMicrons) - topPt;
+    let stream = '';
+    for (const row of rows) {
+      if (row.gap) {
+        y -= row.gap;
+        continue;
+      }
+      if (row.rule) {
+        stream += '0.5 w 10 ' + y.toFixed(2) + ' m 216 ' + y.toFixed(2) + ' l S\n';
+        y -= 8;
+        continue;
+      }
+      const font = row.bold ? 'F2' : 'F1';
+      const size = Number(row.size || 9);
+      const x = Number(row.x || 10);
+      stream += 'BT\n/' + font + ' ' + size + ' Tf\n' + x + ' ' + y.toFixed(2) + ' Td\n(' +
+        pdfEscape(row.text) + ') Tj\nET\n';
+      y -= 11.5;
+    }
+
+    const widthPt = micronsToPoints(widthMicrons);
+    const actualHeightPt = micronsToPoints(heightMicrons);
+    const objects = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + widthPt.toFixed(2) + ' ' + actualHeightPt.toFixed(2) + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+      '<< /Length ' + pdfByteLength(stream) + ' >>\nstream\n' + stream + 'endstream'
+    ];
+
+    let pdf = '%PDF-1.4\n';
+    const offsets = [0];
+    objects.forEach((obj, i) => {
+      offsets.push(pdfByteLength(pdf));
+      pdf += (i + 1) + ' 0 obj\n' + obj + '\nendobj\n';
+    });
+    const xref = pdfByteLength(pdf);
+    pdf += 'xref\n0 ' + (objects.length + 1) + '\n';
+    pdf += '0000000000 65535 f \n';
+    for (let i = 1; i < offsets.length; i++) {
+      pdf += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+    }
+    pdf += 'trailer\n<< /Size ' + (objects.length + 1) + ' /Root 1 0 R >>\n';
+    pdf += 'startxref\n' + xref + '\n%%EOF';
+
+    return {
+      heightMicrons,
+      pdfBase64:bytesToBase64(new TextEncoder().encode(pdf))
+    };
+  }
+
+  function pdfEscape(value) {
+    return String(value ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)');
+  }
+
+  function pdfByteLength(value) {
+    return new TextEncoder().encode(value).length;
+  }
+
+  function bytesToBase64(bytes) {
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
   }
 
   function bridgeRequest(action, payload, timeoutMs) {
