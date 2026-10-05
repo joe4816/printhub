@@ -1,4 +1,4 @@
-const EXTENSION_VERSION='0.2.1';
+const EXTENSION_VERSION='0.2.2';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || msg.type !== 'PRINTHUB_REQUEST') return;
@@ -81,7 +81,7 @@ async function submitTestPrint(printerId) {
   const media = chooseMedia(caps);
   const ticket = buildTicket(caps, media, trimSupported);
   const widthMicrons = Number(media.width_microns || 80000);
-  const heightMicrons = Number(media.height_microns || 140000);
+  const heightMicrons = Number(media.height_microns || 78000);
   const pdf = makeTestPdf(printer.name, widthMicrons, heightMicrons, trimSupported);
 
   const response = await chrome.printing.submitJob({
@@ -118,7 +118,7 @@ function chooseMedia(caps) {
     ? caps.media_size.option : [];
 
   if (!options.length) {
-    return {width_microns:80000,height_microns:140000};
+    return {width_microns:80000,height_microns:78000};
   }
 
   const continuous = options.find(x => x.is_continuous_feed);
@@ -127,7 +127,7 @@ function chooseMedia(caps) {
     const maxH = Number(continuous.max_height_microns || 2000000);
     return {
       width_microns:Number(continuous.width_microns || 80000),
-      height_microns:Math.max(minH, Math.min(140000, maxH))
+      height_microns:Math.max(minH, Math.min(78000, maxH))
     };
   }
 
@@ -138,7 +138,7 @@ function chooseMedia(caps) {
   const preferred = eighty || options.find(x => x.is_default) || options[0];
   return {
     width_microns:Number(preferred.width_microns || 80000),
-    height_microns:Number(preferred.height_microns || 140000),
+    height_microns:Number(preferred.height_microns || 78000),
     vendor_id:preferred.vendor_id
   };
 }
@@ -176,7 +176,7 @@ function defaultOption(capability, fallback) {
 
 function makeTestPdf(printerName, widthMicrons, heightMicrons, trimSupported) {
   const widthPt = Math.max(144, micronsToPoints(widthMicrons));
-  const heightPt = Math.max(180, micronsToPoints(heightMicrons));
+  const heightPt = Math.max(168, micronsToPoints(heightMicrons));
   const lines = [
     'PRINTHUB',
     'DIRECT PRINTER TEST',
