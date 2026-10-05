@@ -106,6 +106,8 @@
   async function directPrintTest() {
     const printerId = $('bridgePrinter').value;
     const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
+    const lengthMm = clampNumber($('directLengthMm').value, 60, 160, 78);
+    $('directLengthMm').value = String(lengthMm);
     if (!printerId) return;
 
     $('bridgePrint').disabled = true;
@@ -113,14 +115,15 @@
     log('Direct printer test requested for ' + printerName + '.');
 
     try {
-      const result = await bridgeRequest('PRINT_TEST', {printerId}, 15000);
+      const result = await bridgeRequest('PRINT_TEST', {printerId, heightMicrons: Math.round(lengthMm * 1000)}, 15000);
+      const lengthNote = ' · ' + ((result.heightMicrons || Math.round(lengthMm * 1000)) / 1000).toFixed(0) + ' mm';
       const cutNote = result.trimSupported
         ? ' · CUT: trim requested'
         : ' · CUT: not exposed by current ChromeOS driver';
       $('bridgeResult').textContent =
         'Direct submit returned ' + (result.status || 'UNKNOWN') +
         (result.jobId ? ' · job ' + result.jobId : '') +
-        cutNote + '. Confirm the physical output.';
+        lengthNote + cutNote + '. Confirm the physical output.';
       log('Direct print submit returned ' + (result.status || 'UNKNOWN') +
         ' for ' + (result.printerName || printerName) +
         (result.trimSupported ? '; trim requested.' : '; trim capability not exposed.'));
@@ -290,6 +293,12 @@
     span.textContent = message;
     li.append(time, span);
     $('activityLog').prepend(li);
+  }
+
+  function clampNumber(value, min, max, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(min, Math.min(max, Math.round(n)));
   }
 
   function cleanId(value) {
