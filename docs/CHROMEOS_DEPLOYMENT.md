@@ -1,92 +1,91 @@
-# ChromeOS deployment — no-extension path
+# ChromeOS deployment — canonical PrintHub path
 
-This is the preferred first PrintHub deployment.
+## Current architecture decision
 
-## Goal
-
-One managed ChromeOS PrintHub endpoint maps to one policy-assigned default printer.
+The production PassKiosk receipt path uses the managed **PrintHub ChromeOS bridge** and the ChromeOS-only `chrome.printing` API.
 
 ```
-ChromeOS device
-    |
-    +-- auto-launch PrintHub
-    |
-    +-- silent printing enabled
-    |
-    +-- default printer selected by policy
+PassKiosk
     |
     v
-window.print()
+Print_Jobs / PrintHub source
     |
     v
-that device's default printer
+managed PassGen Chromebook
+    |
+    v
+PrintHub
+    |
+    v
+managed Chrome extension
+    |
+    +-- enumerate installed printers
+    +-- resolve the current exact Chrome runtime printer ID
+    +-- submit PDF with chrome.printing
+    |
+    v
+selected physical printer
 ```
 
-No Chrome extension is required for this model.
+This is the canonical multi-printer design for PassGen. Do not replace it with a Windows receipt relay or a default-printer-per-job design unless the architecture is explicitly revisited.
 
-## 1. Dashboard
+## Why the bridge is canonical
 
-GitHub Pages:
+The same managed Chromebook must be able to print to more than one physical printer. The bridge has already physically proven:
 
-`https://joe4816.github.io/printhub/`
+- printer enumeration;
+- exact printer selection by current Chrome runtime ID;
+- PDF submission;
+- Receipt Printer 1 output and automatic cut;
+- Receipt Printer 2 output and automatic cut;
+- office-printer PDF submission.
 
-The dashboard supports a persistent endpoint identity.
+The public PrintHub page never stores a Chrome runtime printer ID as an application route. Runtime IDs are discovered locally by the managed bridge.
 
-Example provisioning URL:
+## Managed printer policy
 
-`https://joe4816.github.io/printhub/?endpoint=PH-FRONT-RECEIPT-01&label=Front%20Receipt&media=80MM_RECEIPT`
+Google Admin assigns the printers available to the PassGen device / OU.
 
-The endpoint / label / media values are identifiers and preferences, not credentials. When supplied, the page stores them locally for later launches.
+Printer defaults such as paper size, DPI, duplex, color, and quality are useful queue baselines, but they are **not routing**. PrintHub still chooses the intended physical destination explicitly through the bridge.
 
-## 2. Auto-launch
+For the two receipt queues, the current proven baseline is:
 
-Configure the managed ChromeOS kiosk / web app to launch the PrintHub URL automatically.
+- nominal roll width: 80 mm;
+- receipt queue default: 80 x 60 mm;
+- 203 x 203 DPI;
+- single-sided;
+- black and white;
+- normal quality.
 
-The specific device can remain inside the common PrintHub OU while printer availability is narrowed using the appropriate device or configuration group.
+A submitted receipt PDF may request a longer page than 60 mm. The bridge uses the printer capabilities and requested document height rather than forcing every job to the queue default length.
 
-## 3. Managed printer
+## Receipt PDF geometry
 
-Assign the intended physical printer to the device / group.
+Receipt PDFs must be physically portrait: page height must be greater than the 80 mm roll width.
 
-For the simple endpoint design, expose only the printer(s) needed for that endpoint and configure the intended destination as the default printer.
+A prior 80 x 79 mm Call Pass PDF was interpreted as landscape and auto-rotated by the shared ChromeOS/CUPS path on both receipt printers. PrintHub build `0.6.3-receipt-portrait-fix` corrects the sample proof by enforcing a minimum 80 x 90 mm page while retaining dynamic growth for longer content.
 
-PrintHub itself does not need to know the Chrome printer ID.
+Do not troubleshoot network connectivity, cutter support, extension installation, or printer defaults for that already-resolved rotation failure.
 
-## 4. Silent printing
+## Fallback browser printing
 
-Enable ChromeOS silent printing for the PrintHub kiosk environment.
+`window.print()` remains available only as a diagnostic/fallback path.
 
-With the policy effective, `window.print()` should send the page to the configured default printer without showing the ordinary print-preview interaction.
+It prints to whatever ChromeOS currently considers the device default and therefore is **not** the production routing method for PassGen.
 
-## 5. Test
+## Production queue activation
 
-The dashboard contains **Browser Print Test**.
+Production polling remains disabled until the source connection is authenticated and restricted so the endpoint cannot claim work intended for another route.
 
-Choose the media profile and press:
+Secrets belong only in managed extension policy or another protected endpoint configuration. Never place a worker credential in the public GitHub Pages application.
 
-**PRINT TO DEVICE DEFAULT**
+Before activating a production route:
 
-The test is entirely local. It does not claim a production queue job.
+1. identify the logical PassKiosk route;
+2. bind that route to this PrintHub endpoint;
+3. resolve the intended installed printer locally;
+4. verify the renderer on real hardware;
+5. enable authenticated route-scoped polling;
+6. verify claim, print invocation, completion/failure callback, and deliberate retry behavior.
 
-Interpret the result:
-
-- physical output on the intended printer with no dialog: the simple ChromeOS endpoint path works;
-- preview / confirmation appears: silent-printing policy is not effective for that session;
-- output goes to the wrong printer: default-printer / printer-availability policy needs adjustment;
-- no output: investigate Chrome printing / printer configuration before connecting a live queue.
-
-## 6. Production queue
-
-Do not connect production polling until:
-
-- endpoint identity is final;
-- the printer test succeeds;
-- the backend can return only jobs authorized for this endpoint;
-- the job payload has a renderer / printable artifact contract;
-- completion and failure callbacks are defined.
-
-## Optional extension path
-
-An earlier `chrome.printing` experiment is preserved under `optional/chrome-extension/`.
-
-That path becomes useful only if a single ChromeOS endpoint must dynamically enumerate and select among multiple physical printers. It is not required for the first PrintHub deployment.
+Receipt Printer 1 is the first production route. Receipt Printer 2 follows only after the first route works end-to-end.
