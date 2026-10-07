@@ -8,9 +8,9 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/printhub-icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
-  <script defer src="config.js?v=0.8.3"></script>
-  <script defer src="app.js?v=0.8.3"></script>
-  <script defer src="production.js?v=0.8.3"></script>
+  <script defer src="config.js?v=0.8.4"></script>
+  <script defer src="app.js?v=0.8.4"></script>
+  <script defer src="production.js?v=0.8.4"></script>
 </head>
 <body>
   <main class="shell">
@@ -50,6 +50,12 @@
           <div><dt>Silent printing</dt><dd id="silentState">Policy-controlled</dd></div>
         </dl>
         <p class="muted small note">Default mode uses ChromeOS policy. When the managed PrintHub bridge is installed, this page can enumerate installed printers and submit a job to one exact printer ID.</p>
+      </article>
+
+      <article class="card wide">
+        <div class="card-head"><h2>Printer Routes</h2><button id="refreshRoutes" type="button">CHECK ROUTES</button></div>
+        <table style="width:100%;text-align:left"><thead><tr><th>Printer</th><th>Paper</th><th>Connection</th></tr></thead><tbody id="printerRouteRows"></tbody></table>
+        <p id="printerRoutesResult" class="muted small">Checking installed printer bindings…</p>
       </article>
 
       <article class="card wide">

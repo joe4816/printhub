@@ -1,5 +1,5 @@
-const CACHE='printhub-shell-v6-3';
-const ASSETS=['./','./index.html','./styles.css','./config.js?v=0.8.3','./app.js?v=0.8.3','./production.js?v=0.8.3','./shared/passkiosk-receipt-pdf.js?v=0.8.3','./shared/receipt-font-metrics.js','./manifest.webmanifest','./assets/printhub-icon.svg'];
+const CACHE='printhub-shell-v6-4';
+const ASSETS=['./','./index.html','./styles.css','./config.js?v=0.8.4','./app.js?v=0.8.4','./production.js?v=0.8.4','./shared/passkiosk-receipt-pdf.js?v=0.8.4','./shared/receipt-font-metrics.js','./shared/printer-catalog.js?v=0.8.4','./manifest.webmanifest','./assets/printhub-icon.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
