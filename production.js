@@ -2,7 +2,7 @@
   'use strict';
   const CHANNEL = 'PRINTHUB_BRIDGE_V1';
   const pending = new Map();
-  const RENDERER_VERSION = 'printhub-web-0.8.3';
+  const RENDERER_VERSION = 'printhub-web-0.8.4';
   let running = false;
   let stopped = false;
 
@@ -40,6 +40,7 @@
       setSourceBadge('managed source · authenticated');
       setSourceState('POLLING', 'ok');
       log('PassKiosk production polling enabled for ' + status.endpointId + '.');
+      if (!versionAtLeast(String(bridge.version || ''), '0.6.0')) log('Bridge v0.6.0 is required for all six printer routes. Current bridge continues Receipt Printer 1 only.');
       schedulePoll(250);
     } catch (err) {
       running = false;
@@ -72,16 +73,19 @@
     if (!id) return;
     log('Claimed ' + id + ' · ' + (job.routeLabel || job.routeId || 'route') + '.');
     try {
-      if (String(job.mediaProfileId || '') !== '80MM_RECEIPT') throw new Error('Unsupported media profile: ' + String(job.mediaProfileId || ''));
-      if (String(job.rendererId || '') !== 'PASSKIOSK_RECEIPT') throw new Error('Unsupported renderer: ' + String(job.rendererId || ''));
-      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.3');
-      const doc = await module.buildPrintablePassKioskReceiptPdf(job.transaction || {});
+      const profile = String(job.mediaProfileId || '');
+      const renderers = { '80MM_RECEIPT':'PASSKIOSK_RECEIPT', STATEMENT:'PASSKIOSK_PDF', B6:'PASSKIOSK_PDF' };
+      if (!renderers[profile]) throw new Error('Unsupported media profile: ' + profile);
+      if (String(job.rendererId || '') !== renderers[profile]) throw new Error('Unsupported renderer: ' + String(job.rendererId || ''));
+      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.4');
+      const doc = await module.buildPrintablePassKioskPdf(job.transaction || {}, profile);
       const result = await bridgeRequest('PRINT_SOURCE_JOB', {
         job,
         title:doc.title,
         pdfBase64:doc.pdfBase64,
         heightMicrons:doc.heightMicrons,
-        trim:true,
+        widthMicrons:doc.widthMicrons,
+        trim:profile === '80MM_RECEIPT',
         rendererVersion:RENDERER_VERSION
       }, 20000);
       log('Submitted ' + id + ' to ' + (result.printerName || job.bindingKey || 'printer') +

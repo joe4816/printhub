@@ -1,4 +1,5 @@
-const EXTENSION_VERSION='0.5.0';
+importScripts('printer-routing.js');
+const EXTENSION_VERSION='0.6.0';
 const SOURCE_JOB_PREFIX='PRINTHUB_SOURCE_JOB_';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -83,7 +84,11 @@ async function sourceConfig() {
   const endpointUrl = String(cfg.endpointUrl || '').trim();
   const endpointId = String(cfg.endpointId || '').trim();
   const endpointKey = String(cfg.endpointKey || '').trim();
-  const bindings = cfg.bindings && typeof cfg.bindings === 'object' ? cfg.bindings : {};
+  const bindings = Object.fromEntries(PRINTER_ROUTES.map(r=>[r.key,{name:r.name,mediaProfileId:r.mediaProfileId}]));
+  // Managed overrides can supply stable CUPS URIs without exposing credentials to the page.
+  for (const [key,binding] of Object.entries(cfg.bindings || {})) {
+    bindings[key] = {...bindings[key],...binding};
+  }
 
   if (!/^https:\/\/script\.google\.com\/(?:a\/macros\/[^/]+\/)?macros?\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl) &&
       !/^https:\/\/script\.google\.com\/a\/macros\/[^/]+\/s\/[A-Za-z0-9_-]+\/exec$/.test(endpointUrl) &&
@@ -115,7 +120,8 @@ async function sourceStatus() {
     endpointId:cfg.endpointId,
     enabled:Boolean(ping.enabled),
     pollAfterMs:Number(ping.pollAfterMs || cfg.pollAfterMs || 2500),
-    bindings:Object.keys(cfg.bindings)
+    bindings:Object.keys(cfg.bindings),
+    printerRoutes:await auditPrinterRoutes(cfg)
   };
 }
 
@@ -124,7 +130,8 @@ async function pollSource(payload) {
   await reconcileSourceJobs();
 
   const result = await callSource(cfg, 'endpoint.poll', {
-    maxJobs:clampNumber(payload && payload.maxJobs, 1, 5, 1)
+    maxJobs:clampNumber(payload && payload.maxJobs, 1, 5, 1),
+    readyBindingKeys:(await auditPrinterRoutes(cfg)).filter(r=>r.ready).map(r=>r.key)
   });
 
   return {
@@ -150,15 +157,18 @@ async function submitSourceJob(payload) {
   if (!encoded) throw new Error('PDF payload is required.');
   if (encoded.length > 4000000) throw new Error('PDF payload is too large for the PrintHub bridge.');
 
-  const info = await chrome.printing.getPrinterInfo(printer.id);
+  const info = await printerInfo(printer.id);
   const caps = info && info.capabilities && info.capabilities.printer;
   if (!caps) throw new Error('ChromeOS did not return capabilities for ' + printer.name + '.');
 
   const requestedHeight = clampNumber(payload && payload.heightMicrons, 60000, 500000, 100000);
   const trimSupported = supportsTrim(caps);
   const trimRequested = payload && payload.trim !== false;
-  const media = chooseMedia(caps, requestedHeight);
-  const ticket = buildTicket(caps, media, trimRequested && trimSupported);
+  const profile = String(job.mediaProfileId || '');
+  const bindingProfile = cfg.bindings[bindingKey].mediaProfileId;
+  if (bindingProfile && bindingProfile !== profile) throw new Error('Job paper does not match binding ' + bindingKey);
+  const media = chooseProfileMedia(caps, profile, requestedHeight);
+  const ticket = buildProfileTicket(caps, media, trimRequested && trimSupported, profile);
   const pdf = base64ToBlob(encoded, 'application/pdf');
 
   const response = await chrome.printing.submitJob({
@@ -269,19 +279,41 @@ async function resolveBindingPrinter(cfg, bindingKey) {
     throw new Error('Managed printer binding not found: ' + bindingKey);
   }
 
-  const expectedUri = String(binding.uri || '').trim();
-  const expectedName = String(binding.name || '').trim();
-  if (!expectedUri && !expectedName) {
-    throw new Error('Binding ' + bindingKey + ' must define uri or name.');
-  }
+  return resolveExactPrinter(await chrome.printing.getPrinters(), binding, bindingKey);
+}
 
+
+let routeAuditCache = null;
+async function auditPrinterRoutes(cfg) {
+  const signature = JSON.stringify(cfg.bindings);
+  if (routeAuditCache && routeAuditCache.signature === signature && Date.now()-routeAuditCache.at < 60000) return routeAuditCache.routes;
   const printers = await chrome.printing.getPrinters();
-  let printer = expectedUri ? printers.find(p => String(p.uri || '') === expectedUri) : null;
-  if (!printer && expectedName) printer = printers.find(p => String(p.name || '') === expectedName);
-  if (!printer) {
-    throw new Error('Installed printer for binding ' + bindingKey + ' was not found.');
+  const routes = [];
+  for (const [key,binding] of Object.entries(cfg.bindings)) {
+    const row = {key,name:String(binding.name || key),mediaProfileId:String(binding.mediaProfileId || ''),ready:false};
+    try {
+      const printer = resolveExactPrinter(printers,binding,key);
+      const info = await printerInfo(printer.id);
+      const caps = info && info.capabilities && info.capabilities.printer;
+      if (!caps) throw new Error('Printer capabilities unavailable.');
+      if (['UNREACHABLE','STOPPED','EXPIRED_CERTIFICATE'].includes(info.status)) throw new Error('Printer status: ' + info.status);
+      const profile = row.mediaProfileId || '80MM_RECEIPT';
+      const media = chooseProfileMedia(caps,profile,100000);
+      buildProfileTicket(caps,media,false,profile);
+      row.name = printer.name; row.ready = true; row.printerId = printer.id;
+    } catch (err) { row.error = String(err.message || err); }
+    routes.push(row);
   }
-  return printer;
+  routeAuditCache = {signature,at:Date.now(),routes};
+  return routes;
+}
+const printerInfoCache = new Map();
+async function printerInfo(id) {
+  const cached = printerInfoCache.get(id);
+  if (cached && Date.now()-cached.at < 60000) return cached.info;
+  const info = await chrome.printing.getPrinterInfo(id);
+  printerInfoCache.set(id,{at:Date.now(),info});
+  return info;
 }
 
 async function handleSourceJobStatus(jobId, status) {
@@ -589,3 +621,4 @@ function base64ToBlob(base64, type) {
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], {type});
 }
+
