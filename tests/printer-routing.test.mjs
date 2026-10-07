@@ -37,6 +37,7 @@ test('copier lacking selected paper never falls back to default Letter',()=>{
 });
 test('old bridge cannot claim copier jobs; readiness and catalog must match',()=>{
  assert.match(worker,/readyBindingKeys:.*auditPrinterRoutes/);
+ assert.match(worker,/supportedMediaProfiles/);
 });
 test('source submissions reach six distinct installed printers with correct tickets',async()=>{
  const submitted=[];const callbacks=[];const stored={};
@@ -49,4 +50,8 @@ test('source submissions reach six distinct installed printers with correct tick
  assert.equal(submitted[0].ticket.print.media_size.vendor_id,'statement');
  assert.equal(submitted[2].ticket.print.media_size.vendor_id,'B6');
  assert.equal(callbacks.filter(c=>c.action==='endpoint.complete').length,6);
+ await vm.runInContext('pollSource({maxJobs:1})',context);
+ assert.deepEqual(callbacks.at(-1).readyBindingKeys,['AP_TARDY','RECEIPT1','RECEIPT2']);
+ await vm.runInContext("pollSource({maxJobs:1,supportedMediaProfiles:['80MM_RECEIPT','STATEMENT','B6']})",context);
+ assert.deepEqual(callbacks.at(-1).readyBindingKeys,PRINTER_ROUTES.map(r=>r.key));
 });
