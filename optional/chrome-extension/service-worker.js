@@ -131,7 +131,9 @@ async function pollSource(payload) {
 
   const result = await callSource(cfg, 'endpoint.poll', {
     maxJobs:clampNumber(payload && payload.maxJobs, 1, 5, 1),
-    readyBindingKeys:(await auditPrinterRoutes(cfg)).filter(r=>r.ready).map(r=>r.key)
+    // Old hub pages render receipts only; do not offer them copier claims.
+    readyBindingKeys:(await auditPrinterRoutes(cfg)).filter(r=>r.ready &&
+      (Array.isArray(payload && payload.supportedMediaProfiles) ? payload.supportedMediaProfiles : ['80MM_RECEIPT']).includes(r.mediaProfileId || '80MM_RECEIPT')).map(r=>r.key)
   });
 
   return {
