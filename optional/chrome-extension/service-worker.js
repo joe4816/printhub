@@ -1,5 +1,5 @@
 importScripts('printer-routing.js');
-const EXTENSION_VERSION='0.6.1';
+const EXTENSION_VERSION='0.6.2';
 const SOURCE_JOB_PREFIX='PRINTHUB_SOURCE_JOB_';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

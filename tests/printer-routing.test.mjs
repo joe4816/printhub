@@ -10,9 +10,9 @@ vm.createContext(sandbox); vm.runInContext(routing+'\n'+worker,sandbox);
 const routeValue = expression => JSON.parse(vm.runInContext('JSON.stringify('+expression+')',sandbox));
 const caps = {media_size:{option:[{name:'NA_LETTER',width_microns:215900,height_microns:279400,is_default:true},{name:'NA_STATEMENT',vendor_id:'statement',width_microns:139700,height_microns:215900},{name:'ISO_B6',vendor_id:'B6',width_microns:125000,height_microns:176000},{name:'ISO_A6',vendor_id:'A6',width_microns:105000,height_microns:148000}]},page_orientation:{option:[{type:'PORTRAIT',is_default:true},{type:'LANDSCAPE'}]},duplex:{option:[{type:'LONG_EDGE',is_default:true},{type:'NO_DUPLEX'}]}};
 sandbox.caps=caps;
-test('all six CUPS destinations agree across page and bridge',()=>{
+test('all seven CUPS destinations agree across page and bridge',()=>{
  assert.deepEqual(routeValue('PRINTER_ROUTES'),PRINTER_ROUTES);
- assert.equal(PRINTER_ROUTES.length,6);
+ assert.equal(PRINTER_ROUTES.length,7);
  assert.equal(PRINTER_ROUTES.filter(r=>r.mediaProfileId==='A6')[0].name,'Back Office');
 });
 test('exact printer resolution rejects missing and duplicate names',()=>{
@@ -39,7 +39,7 @@ test('old bridge cannot claim copier jobs; readiness and catalog must match',()=
  assert.match(worker,/readyBindingKeys:.*auditPrinterRoutes/);
  assert.match(worker,/supportedMediaProfiles/);
 });
-test('source submissions reach six distinct installed printers with correct tickets',async()=>{
+test('source submissions reach seven distinct installed printers with correct tickets',async()=>{
  const submitted=[];const callbacks=[];const stored={};
  const printers=PRINTER_ROUTES.map(r=>({id:'cups-'+r.key,name:r.name,uri:'test://'+r.key}));
  const receiptCaps={...caps,media_size:{option:[{is_continuous_feed:true,width_microns:80000,min_height_microns:25400,max_height_microns:500000}]}};
@@ -49,9 +49,9 @@ test('source submissions reach six distinct installed printers with correct tick
  assert.deepEqual(submitted.map(j=>j.printerId),printers.map(p=>p.id));
  assert.equal(submitted[0].ticket.print.media_size.vendor_id,'statement');
  assert.equal(submitted[2].ticket.print.media_size.vendor_id,'A6');
- assert.equal(callbacks.filter(c=>c.action==='endpoint.complete').length,6);
+ assert.equal(callbacks.filter(c=>c.action==='endpoint.complete').length,7);
  await vm.runInContext('pollSource({maxJobs:1})',context);
- assert.deepEqual(callbacks.at(-1).readyBindingKeys,['AP_TARDY','RECEIPT1','RECEIPT2']);
+ assert.deepEqual(callbacks.at(-1).readyBindingKeys,['AP_TARDY','CAFE_TARDY','RECEIPT1','RECEIPT2']);
  await vm.runInContext("pollSource({maxJobs:1,supportedMediaProfiles:['80MM_RECEIPT','STATEMENT','A6','B6']})",context);
  assert.deepEqual(callbacks.at(-1).readyBindingKeys,PRINTER_ROUTES.map(r=>r.key));
 });
