@@ -142,6 +142,9 @@ export function buildPassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT
   rule();
   const id = String(tx['Transaction ID'] || '').trim();
   if (id) text(id, 6.5, false, 'center');
+  // Move A6 content down 5 mm, using the existing lower blank space.
+  // Keep the fit scale unchanged so widths, fonts and spacing stay approved.
+  const topInset = ['A6','B6'].includes(paperProfile) ? 5 * 72 / 25.4 : 0;
   const top = fixed ? 18 : 14;
   const bottom = fixed ? 14 : 18;
   const heightPt = Math.max(90000 * 72 / 25400,
@@ -187,10 +190,10 @@ export function buildPassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT
     y -= block.height;
   }
   if (fixed) {
-    // Keep the content's upper-left margin while fitting all required elements.
+    // Preserve horizontal geometry; A6 reserves an extra 5 mm above the content.
     stream = 'q ' + scale.toFixed(6) + ' 0 0 ' + scale.toFixed(6) + ' ' +
       (MARGIN * (1 - scale)).toFixed(2) + ' ' +
-      (actualHeightPt - top - (drawingHeight - top) * scale).toFixed(2) + ' cm\n' + stream + 'Q\n';
+      (actualHeightPt - top - topInset - (drawingHeight - top) * scale).toFixed(2) + ' cm\n' + stream + 'Q\n';
   }
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',

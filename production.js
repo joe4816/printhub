@@ -2,7 +2,7 @@
   'use strict';
   const CHANNEL = 'PRINTHUB_BRIDGE_V1';
   const pending = new Map();
-  const RENDERER_VERSION = 'printhub-web-0.8.8';
+  const RENDERER_VERSION = 'printhub-web-0.8.9';
   let running = false;
   let stopped = false;
   let bridgeVersion = '0.0.0';
@@ -80,7 +80,7 @@
       const renderers = { '80MM_RECEIPT':'PASSKIOSK_RECEIPT', STATEMENT:'PASSKIOSK_PDF', A6:'PASSKIOSK_PDF', B6:'PASSKIOSK_PDF' };
       if (!renderers[profile]) throw new Error('Unsupported media profile: ' + profile);
       if (String(job.rendererId || '') !== renderers[profile]) throw new Error('Unsupported renderer: ' + String(job.rendererId || ''));
-      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.8');
+      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.9');
       const doc = await module.buildPrintablePassKioskPdf(job.transaction || {}, profile);
       const result = await bridgeRequest('PRINT_SOURCE_JOB', {
         job,
