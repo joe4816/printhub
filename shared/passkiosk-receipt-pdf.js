@@ -93,13 +93,15 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
     signature('Requested by', tx['Requested By'] || tx['Session User']);
     writingLine('Sent back to class by', true);
   } else if (workflow === 'DET' || workflow === 'LUNCH_DET') {
-    field('DATE ISSUED', formatDateTime(tx['Created At']), 9, false);
+    field('ISSUED', [formatDateTime(tx['Created At']),
+      adultName(tx['Issued By'] || tx['Session User'])].filter(Boolean).join(' / '), 9, false);
     field('DETENTION DATE(S)', detentionDates(tx), 11);
     field('REPORT TO', tx['Report To'] || (workflow === 'DET' ? 'Room 602' : 'The Cafeteria'), 11);
     text('Your student has been assigned a School Detention for the following infraction:', 8.5);
     gap(4);
     field('INFRACTION', tx['Reason(s)'], 9, false);
-    signature('Issued by', tx['Issued By'] || tx['Session User']);
+    text('Administrator Signature', 7, true);
+    signature('', '');
     const directions = String(tx['Directions Snapshot'] || '').trim();
     if (directions) {
       text('DIRECTIONS', 7, true);

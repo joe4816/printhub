@@ -34,6 +34,12 @@ signature images from the authenticated backend response.
 
 ## Original paper and current overrides (October 7)
 
+The October 1 10:27–10:37 AM Pacific exchange consolidates detention issuer
+name and date in the top ISSUED line, immediately after student ID/grade and
+before infraction or detention details. Do not restore a duplicate bottom
+Assigned by / Notified On / Issued by name field. The stored authorization
+signature remains below the infraction; student and parent signature lines remain.
+
 Checked the original corridor, request, detention and activity-bus photographs
 shared September 30–October 1. Restore operational fields from those forms,
 including the second corridor signature and both detention acknowledgement lines.
