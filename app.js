@@ -143,7 +143,7 @@
     const printerId = $('bridgePrinter').value;
     const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
     if (!printerId) {
-      $('callPassResult').textContent = 'Choose an installed printer above, then press PRINT SAMPLE CALL PASS.';
+      $('callPassResult').textContent = 'Choose an installed printer above, then press PRINT SAMPLE REQUEST FOR STUDENT.';
       return;
     }
 
@@ -157,28 +157,28 @@
       'Transaction ID':'PK-SAMPLE-CALL'
     });
     $('sampleCallPass').disabled = true;
-    $('callPassResult').textContent = 'Submitting Call Pass proof to ' + printerName + '…';
-    log('PassKiosk Call Pass proof requested for ' + printerName + ' at ' + Math.round(doc.heightMicrons / 1000) + ' mm.');
+    $('callPassResult').textContent = 'Submitting Request for Student proof to ' + printerName + '…';
+    log('PassKiosk Request for Student proof requested for ' + printerName + ' at ' + Math.round(doc.heightMicrons / 1000) + ' mm.');
 
     try {
       const result = await bridgeRequest('PRINT_PDF', {
         printerId,
-        title:'PassKiosk Call Pass Proof',
+        title:'PassKiosk Request for Student Proof',
         pdfBase64:doc.pdfBase64,
         heightMicrons:doc.heightMicrons,
         trim:true
       }, 15000);
 
       $('callPassResult').textContent =
-        'Call Pass submit returned ' + (result.status || 'UNKNOWN') +
+        'Request for Student submit returned ' + (result.status || 'UNKNOWN') +
         ' · ' + Math.round((result.heightMicrons || doc.heightMicrons) / 1000) + ' mm' +
         (result.trimRequested ? ' · CUT requested' : ' · CUT unavailable') +
         '. Confirm the physical output.';
-      log('Call Pass proof submit returned ' + (result.status || 'UNKNOWN') +
+      log('Request for Student proof submit returned ' + (result.status || 'UNKNOWN') +
         ' for ' + (result.printerName || printerName) + '.');
     } catch (err) {
-      $('callPassResult').textContent = 'Call Pass proof failed: ' + err.message;
-      log('Call Pass proof failed: ' + err.message);
+      $('callPassResult').textContent = 'Request for Student proof failed: ' + err.message;
+      log('Request for Student proof failed: ' + err.message);
     } finally {
       $('sampleCallPass').disabled = false;
     }

@@ -61,7 +61,8 @@ test('call-pass delivery header precedes school and restores the return signatur
     Destination:'Office', When:'Immediately', 'Requested By':'Joseph Nagy'
   }));
   assert.ok(pdf.indexOf('DELIVER TO: P2 / Rm 202 / Edmondson') < pdf.indexOf('Middle School'));
-  assert.match(pdf, /for Sample Student/);
+  assert.match(pdf, /REQUEST FOR STUDENT/);
+  assert.match(pdf, /Sample Student/);
   assert.match(pdf, /Sent back to class by/);
   assert.match(pdf, /J\. Nagy/);
   assert.match(pdf, /\(@\) Tj/);
@@ -75,6 +76,7 @@ test('hall pass keeps explicit excused status separate from reason and restores 
     assert.match(pdf, excused ? /Excused by/ : /Signed by/);
     assert.match(pdf, /D\. Krallman/);
     assert.match(pdf, /Time returned/);
+    assert.match(pdf, /\(Signed\) Tj/);
     assert.match(pdf, /This pass must be returned/);
     assert.doesNotMatch(pdf, /REASON \/ EXCUSED FOR/);
   }
@@ -88,6 +90,9 @@ test('detention has its identifiers, date issued, date(s) and separate direction
     'Directions Snapshot':'First instruction\nSecond instruction'
   }));
   assert.match(pdf, /Student ID: TEST-123/);
+  assert.match(pdf, /Dear Parent\/Guardian/);
+  assert.match(pdf, /Student Signature/);
+  assert.match(pdf, /Parent Signature/);
   assert.match(pdf, /DATE ISSUED/);
   assert.match(pdf, /Oct 6, 2026, 5:31 PM/);
   assert.match(pdf, /Oct 7, 2026, Oct 8, 2026/);
@@ -129,6 +134,7 @@ test('stored signature raster is embedded as an image; no blank signature substi
   assert.match(pdf, /\/Sig Do/);
   assert.doesNotMatch(pdf, /\(Signature\)/);
   assert.match(pdf, /Time returned/);
+    assert.match(pdf, /\(Signed\) Tj/);
 });
 
 test('a configured but missing signature stops production printing', async () => {

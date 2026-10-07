@@ -1,4 +1,4 @@
-const CACHE='printhub-shell-v5';
+const CACHE='printhub-shell-v6';
 const ASSETS=['./','./index.html','./styles.css','./config.js','./app.js','./production.js','./shared/passkiosk-receipt-pdf.js','./shared/receipt-font-metrics.js','./manifest.webmanifest','./assets/printhub-icon.svg'];
 
 self.addEventListener('install', event => {

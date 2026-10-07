@@ -3,7 +3,6 @@ import {HELVETICA, HELVETICA_BOLD} from './receipt-font-metrics.js';
 const WIDTH_MICRONS = 80000;
 const WIDTH_PT = WIDTH_MICRONS * 72 / 25400;
 const MARGIN = 4 * 72 / 25.4;
-const CONTENT_WIDTH = WIDTH_PT - 2 * MARGIN;
 const TIME_ZONE = 'America/Los_Angeles';
 const SCHOOL = 'Ernest A. Becker Sr. Middle School';
 
@@ -11,6 +10,9 @@ const SCHOOL = 'Ernest A. Becker Sr. Middle School';
 export function buildPassKioskReceiptPdf(transaction = {}) {
   const tx = transaction || {};
   const workflow = String(tx.Workflow || '').trim().toUpperCase();
+  // Keep the approved activity-bus layout; other receipts need extra right clearance.
+  const CONTENT_WIDTH = (workflow === 'BUS' ? 72 : 68) * 72 / 25.4;
+  const RIGHT = MARGIN + CONTENT_WIDTH;
   const blocks = [];
   const gap = (height = 4) => blocks.push({kind:'gap', height});
   const rule = () => blocks.push({kind:'rule', height:9});
@@ -57,7 +59,7 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
       tx['Delivery Teacher']
     ].map(v => String(v ?? '').trim()).filter(Boolean);
     if (delivery.length) text('DELIVER TO: ' + delivery.join(' / '), 8, true);
-    text('for ' + String(tx['Student Name'] || ''), 11, true);
+    text(String(tx['Student Name'] || ''), 11, true, 'right');
     rule();
   }
   text(tx['School Name'] || SCHOOL, 8.5, true, 'center');
@@ -67,6 +69,10 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
   while (textWidth(title, titleSize, true) > CONTENT_WIDTH && titleSize > 11) titleSize -= 0.5;
   text(title, titleSize, true, 'center');
   rule();
+  if (workflow === 'DET' || workflow === 'LUNCH_DET') {
+    text('Dear Parent/Guardian, this is to inform you that:', 8.5);
+    gap(4);
+  }
   if (workflow !== 'RQST') student();
 
   if (workflow === 'PASS') {
@@ -78,6 +84,7 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
     signature(tx.Excused === true ? 'Excused by' : 'Signed by',
       tx['Issued By'] || tx['Session User']);
     writingLine('Time returned');
+    writingLine('Signed');
     text('This pass must be returned to the teacher from whose room you were excused.', 8);
   } else if (workflow === 'RQST') {
     field('SEND STUDENT TO', tx.Destination, 12);
@@ -89,6 +96,8 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
     field('DATE ISSUED', formatDateTime(tx['Created At']), 9, false);
     field('DETENTION DATE(S)', detentionDates(tx), 11);
     field('REPORT TO', tx['Report To'] || (workflow === 'DET' ? 'Room 602' : 'The Cafeteria'), 11);
+    text('Your student has been assigned a School Detention for the following infraction:', 8.5);
+    gap(4);
     field('INFRACTION', tx['Reason(s)'], 9, false);
     signature('Issued by', tx['Issued By'] || tx['Session User']);
     const directions = String(tx['Directions Snapshot'] || '').trim();
@@ -99,6 +108,8 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
         gap(2);
       }
     }
+    writingLine('Student Signature');
+    writingLine('Parent Signature');
   } else if (workflow === 'BUS') {
     field('DATE', formatDate(tx['Created At']), 10, false);
     field('BUS ROUTE(S)', tx['Bus Route(s)'], 11);
@@ -124,11 +135,12 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
   for (const block of blocks) {
     if (block.kind === 'text') {
       const x = block.align === 'center'
-        ? (WIDTH_PT - textWidth(block.text, block.size, block.bold)) / 2 : MARGIN;
+        ? MARGIN + (CONTENT_WIDTH - textWidth(block.text, block.size, block.bold)) / 2
+        : block.align === 'right' ? RIGHT - textWidth(block.text, block.size, block.bold) : MARGIN;
       stream += pdfText(block.text, block.size, block.bold, x, y);
     } else if (block.kind === 'rule') {
       stream += '0.5 w ' + MARGIN.toFixed(2) + ' ' + y.toFixed(2) + ' m ' +
-        (WIDTH_PT - MARGIN).toFixed(2) + ' ' + y.toFixed(2) + ' l S\n';
+        RIGHT.toFixed(2) + ' ' + y.toFixed(2) + ' l S\n';
     } else if (block.kind === 'checkbox') {
       const boxY = y - 8;
       stream += '0.8 w ' + MARGIN.toFixed(2) + ' ' + boxY.toFixed(2) + ' 8 8 re S\n';
@@ -140,7 +152,7 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
       stream += 'q ' + block.width.toFixed(2) + ' 0 0 ' + block.imageHeight.toFixed(2) +
         ' ' + MARGIN.toFixed(2) + ' ' + (y - block.imageHeight).toFixed(2) + ' cm /Sig Do Q\n';
     } else if (block.kind === 'writingLine') {
-      const end = WIDTH_PT - MARGIN;
+      const end = RIGHT;
       const lineEnd = block.withTime ? end - 56 : end;
       stream += '0.5 w ' + MARGIN.toFixed(2) + ' ' + y.toFixed(2) + ' m ' +
         lineEnd.toFixed(2) + ' ' + y.toFixed(2) + ' l S\n';
@@ -189,7 +201,7 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
 }
 
 function workflowTitle(workflow) {
-  return ({PASS:'HALL PASS', RQST:'CALL PASS', DET:'AFTER-SCHOOL DETENTION',
+  return ({PASS:'CORRIDOR PASS', RQST:'REQUEST FOR STUDENT', DET:'AFTER-SCHOOL DETENTION',
     LUNCH_DET:'LUNCH DETENTION', BUS:'ACTIVITY BUS PASS'})[workflow] || 'PASSKIOSK DOCUMENT';
 }
 function adultName(value) {
