@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildPassKioskReceiptPdf} from '../shared/passkiosk-receipt-pdf.js';
+import {buildPassKioskReceiptPdf, buildPrintablePassKioskReceiptPdf} from '../shared/passkiosk-receipt-pdf.js';
 
 function decoded(doc) {
   return Buffer.from(doc.pdfBase64, 'base64').toString('latin1');
@@ -52,4 +52,88 @@ test('REQUEST and detention receipts use the same portrait-safe geometry', () =>
 
   assert.ok(request.heightMicrons >= 90000);
   assert.ok(detention.heightMicrons >= 90000);
+});
+
+test('call-pass delivery header precedes school and restores the return signature/time', () => {
+  const pdf = decoded(buildPassKioskReceiptPdf({
+    Workflow:'RQST', 'Student Name':'Sample Student',
+    'Delivery Period':'P2', 'Delivery Room':'202', 'Delivery Teacher':'Edmondson',
+    Destination:'Office', When:'Immediately', 'Requested By':'Joseph Nagy'
+  }));
+  assert.ok(pdf.indexOf('DELIVER TO: P2 / Rm 202 / Edmondson') < pdf.indexOf('Middle School'));
+  assert.match(pdf, /for Sample Student/);
+  assert.match(pdf, /Sent back to class by/);
+  assert.match(pdf, /J\. Nagy/);
+  assert.match(pdf, /\(@\) Tj/);
+});
+
+test('hall pass keeps explicit excused status separate from reason and restores return fields', () => {
+  for (const excused of [true, false]) {
+    const pdf = decoded(buildPassKioskReceiptPdf({
+      Workflow:'PASS', Excused:excused, 'Session User':'Derek Krallman'
+    }));
+    assert.match(pdf, excused ? /Excused by/ : /Signed by/);
+    assert.match(pdf, /D\. Krallman/);
+    assert.match(pdf, /Time returned/);
+    assert.match(pdf, /This pass must be returned/);
+    assert.doesNotMatch(pdf, /REASON \/ EXCUSED FOR/);
+  }
+});
+
+test('detention has its identifiers, date issued, date(s) and separate direction bullets', () => {
+  const pdf = decoded(buildPassKioskReceiptPdf({
+    Workflow:'DET', 'Student Name':'Sample Student', 'Student ID':'TEST-123',
+    Grade:8, 'Created At':'2026-10-07T00:31:00Z',
+    'Detention Dates':['2026-10-07','2026-10-08'],
+    'Directions Snapshot':'First instruction\nSecond instruction'
+  }));
+  assert.match(pdf, /Student ID: TEST-123/);
+  assert.match(pdf, /DATE ISSUED/);
+  assert.match(pdf, /Oct 6, 2026, 5:31 PM/);
+  assert.match(pdf, /Oct 7, 2026, Oct 8, 2026/);
+  assert.match(pdf, /- First instruction/);
+  assert.match(pdf, /- Second instruction/);
+  assert.match(pdf, /Room 602/);
+});
+
+test('activity bus has a complete template instead of generic workflow fallback', () => {
+  const pdf = decoded(buildPassKioskReceiptPdf({
+    Workflow:'BUS', 'Student Name':'Sample Student',
+    'Bus Route(s)':'TEST ROUTE', 'Bus Drop-off(s)':'TEST STOP', 'Approved By':'Joseph Nagy'
+  }));
+  assert.match(pdf, /ACTIVITY BUS PASS/);
+  assert.match(pdf, /TEST ROUTE/);
+  assert.match(pdf, /TEST STOP/);
+  assert.match(pdf, /Administrator \/ Teacher/);
+  assert.doesNotMatch(pdf, /\(Signature\)/);
+  assert.doesNotMatch(pdf, /\(WORKFLOW\)/);
+});
+
+test('WinAnsi preserves Spanish names and converts room separators into readable text', () => {
+  const pdf = decoded(buildPassKioskReceiptPdf({
+    Workflow:'PASS', 'Student Name':'José Muñoz',
+    To:'Rm 202 · Edmondson', 'Session User':'L. Siqueiros'
+  }));
+  assert.match(pdf, /Jos\\351 Mu\\361oz/);
+  assert.match(pdf, /Rm 202 \/ Edmondson/);
+  assert.doesNotMatch(pdf, /Rm 202 \? Edmondson/);
+  assert.match(pdf, /WinAnsiEncoding/);
+});
+
+
+test('stored signature raster is embedded as an image; no blank signature substitute', () => {
+  const pdf = decoded(buildPassKioskReceiptPdf({Workflow:'PASS', 'Session User':'Test Adult',
+    'Signature Raster':{width:2, height:2, grayHex:'ff0000ff'}}));
+  assert.match(pdf, /\/Subtype \/Image/);
+  assert.match(pdf, /\/Sig 7 0 R/);
+  assert.match(pdf, /\/Sig Do/);
+  assert.doesNotMatch(pdf, /\(Signature\)/);
+  assert.match(pdf, /Time returned/);
+});
+
+test('a configured but missing signature stops production printing', async () => {
+  await assert.rejects(buildPrintablePassKioskReceiptPdf({Workflow:'PASS',
+    'Signature File':'test.png'}), /not supplied by the backend/);
+  assert.throws(() => buildPassKioskReceiptPdf({Workflow:'PASS',
+    'Signature Raster':{width:2, height:2, grayHex:'00'}}), /Invalid signature/);
 });

@@ -147,7 +147,15 @@
       return;
     }
 
-    const doc = makeSampleCallPassPdf();
+    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js');
+    const doc = buildPassKioskReceiptPdf({
+      Workflow:'RQST', 'Student Name':'JORDAN SMITH',
+      'Delivery Period':'P3', 'Delivery Room':'214', 'Delivery Teacher':'Lind',
+      Destination:'Back Office / Counseling Office',
+      'Requested By':'L. Siqueiros', When:'Immediately',
+      'Reason(s)':'Going Home / Parent is waiting',
+      'Transaction ID':'PK-SAMPLE-CALL'
+    });
     $('sampleCallPass').disabled = true;
     $('callPassResult').textContent = 'Submitting Call Pass proof to ' + printerName + '…';
     log('PassKiosk Call Pass proof requested for ' + printerName + ' at ' + Math.round(doc.heightMicrons / 1000) + ' mm.');
@@ -174,119 +182,6 @@
     } finally {
       $('sampleCallPass').disabled = false;
     }
-  }
-
-  function makeSampleCallPassPdf() {
-    const widthMicrons = 80000;
-    const rows = [
-      {text:'P3   Rm 214   Mr. Lind   for   JORDAN SMITH', size:7, bold:true},
-      {rule:true},
-      {text:'BECKER MIDDLE SCHOOL', size:10, bold:true, x:43},
-      {text:'CALL PASS', size:15, bold:true, x:72},
-      {rule:true},
-      {text:'SEND STUDENT TO:', size:9, bold:true},
-      {text:'Back Office / Counseling Office', size:9},
-      {text:'L. Siqueiros', size:10, bold:true},
-      {gap:4},
-      {text:'IMMEDIATELY', size:10, bold:true},
-      {text:'AT 9:15 AM', size:10, bold:true},
-      {gap:4},
-      {text:'GOING HOME', size:10, bold:true},
-      {text:'PARENT IS WAITING', size:10, bold:true},
-      {gap:4},
-      {text:'Requested By:', size:8},
-      {text:'L. Siqueiros', size:10, bold:true, x:75},
-      {gap:4},
-      {text:'Sent back to class by:', size:8},
-      {text:'________________________  @  ________', size:8}
-    ];
-
-    const topPt = 14;
-    const bottomPt = 16;
-    let contentPt = 0;
-    for (const row of rows) contentPt += row.gap || (row.rule ? 8 : 11.5);
-    // Keep receipt PDFs physically portrait. A content-driven page around
-    // 79 mm tall is slightly shorter than the 80 mm roll width, which some
-    // ChromeOS/CUPS pipelines auto-rotate. Preserve dynamic height, but never
-    // allow a receipt page shorter than 90 mm.
-    const minPt = micronsToPoints(90000);
-    const heightPt = Math.max(minPt, topPt + contentPt + bottomPt);
-    const heightMicrons = Math.ceil(heightPt * 25400 / 72 / 1000) * 1000;
-
-    let y = micronsToPoints(heightMicrons) - topPt;
-    let stream = '';
-    for (const row of rows) {
-      if (row.gap) {
-        y -= row.gap;
-        continue;
-      }
-      if (row.rule) {
-        stream += '0.5 w 10 ' + y.toFixed(2) + ' m 216 ' + y.toFixed(2) + ' l S\n';
-        y -= 8;
-        continue;
-      }
-      const font = row.bold ? 'F2' : 'F1';
-      const size = Number(row.size || 9);
-      const x = Number(row.x || 10);
-      stream += 'BT\n/' + font + ' ' + size + ' Tf\n' + x + ' ' + y.toFixed(2) + ' Td\n(' +
-        pdfEscape(row.text) + ') Tj\nET\n';
-      y -= 11.5;
-    }
-
-    const widthPt = micronsToPoints(widthMicrons);
-    const actualHeightPt = micronsToPoints(heightMicrons);
-    const objects = [
-      '<< /Type /Catalog /Pages 2 0 R >>',
-      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + widthPt.toFixed(2) + ' ' + actualHeightPt.toFixed(2) + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
-      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
-      '<< /Length ' + pdfByteLength(stream) + ' >>\nstream\n' + stream + 'endstream'
-    ];
-
-    let pdf = '%PDF-1.4\n';
-    const offsets = [0];
-    objects.forEach((obj, i) => {
-      offsets.push(pdfByteLength(pdf));
-      pdf += (i + 1) + ' 0 obj\n' + obj + '\nendobj\n';
-    });
-    const xref = pdfByteLength(pdf);
-    pdf += 'xref\n0 ' + (objects.length + 1) + '\n';
-    pdf += '0000000000 65535 f \n';
-    for (let i = 1; i < offsets.length; i++) {
-      pdf += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
-    }
-    pdf += 'trailer\n<< /Size ' + (objects.length + 1) + ' /Root 1 0 R >>\n';
-    pdf += 'startxref\n' + xref + '\n%%EOF';
-
-    return {
-      heightMicrons,
-      pdfBase64:bytesToBase64(new TextEncoder().encode(pdf))
-    };
-  }
-
-  function pdfEscape(value) {
-    return String(value ?? '')
-      .replace(/\\/g, '\\\\')
-      .replace(/\(/g, '\\(')
-      .replace(/\)/g, '\\)');
-  }
-
-  function pdfByteLength(value) {
-    return new TextEncoder().encode(value).length;
-  }
-
-  function micronsToPoints(value) {
-    return Number(value || 0) * 72 / 25400;
-  }
-
-  function bytesToBase64(bytes) {
-    let binary = '';
-    const chunk = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunk) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-    }
-    return btoa(binary);
   }
 
   function bridgeRequest(action, payload, timeoutMs) {
@@ -467,3 +362,4 @@
     return String(value || '').trim().slice(0, 120);
   }
 })();
+
