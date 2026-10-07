@@ -2,7 +2,7 @@
   'use strict';
   const CHANNEL = 'PRINTHUB_BRIDGE_V1';
   const pending = new Map();
-  const RENDERER_VERSION = 'printhub-web-0.8.0';
+  const RENDERER_VERSION = 'printhub-web-0.8.1';
   let running = false;
   let stopped = false;
 

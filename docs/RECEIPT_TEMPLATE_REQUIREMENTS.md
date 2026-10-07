@@ -8,11 +8,11 @@ requests, the original print spec and receipt deck, and the October 4–6 proofs
 
 | Template | Required behavior |
 | --- | --- |
-| Every receipt | Full school name; measured wrapping inside 80 mm paper with 4 mm margins; readable separators and Latin accented names; transaction ID; no clipped title. |
-| Hall pass | Student and ID/grade; From and To; explicit Excused checkbox independent of reason; omit blank reason; issued time; “Excused by” or “Signed by”; configured adult name and stored signature image; time returned; instruction to return to the originating teacher. |
-| Call pass | Top delivery period, room and teacher, then “for” student; distinguish delivery destination from student destination; when/reason/requester; handwritten “Sent back to class by” and @ time lines. |
-| Lunch detention | Student and ID/grade; date issued and detention date(s); Cafeteria default; infraction; issuer; lunch-only instructions, one source line per bullet. |
-| After-school detention | Student and ID/grade; date issued and detention date(s); Room 602 default; infraction; issuer; after-school-only instructions, one source line per bullet. |
+| Every receipt | Full school name; measured wrapping inside 80 mm paper: 68 mm content starting 4 mm from the left for corridor, request and detention; preserve the approved 72 mm activity-bus layout; readable separators and Latin accented names; transaction ID; no clipped title. |
+| Corridor pass | Student and ID/grade; From and To; explicit Excused checkbox independent of reason; omit blank reason; issued time; “Excused by” or “Signed by”; configured adult name and stored signature image; time returned and separate returned-by Signed writing lines; instruction to return to the originating teacher. |
+| Request for student | Title REQUEST FOR STUDENT; top delivery period, room and teacher left aligned, then student name right aligned on the next line; distinguish delivery destination from student destination; when/reason/requester; handwritten “Sent back to class by” and @ time lines. |
+| Lunch detention | Student and ID/grade; date issued and detention date(s); Cafeteria default; parent/guardian notification and assignment statement; infraction; issuer with stored signature; Student Signature and Parent Signature writing lines; lunch-only instructions, one source line per bullet. |
+| After-school detention | Student and ID/grade; date issued and detention date(s); Room 602 default; parent/guardian notification and assignment statement; infraction; issuer with stored signature; Student Signature and Parent Signature writing lines; after-school-only instructions, one source line per bullet. |
 | Activity bus | Dedicated bus template; student and ID/grade; date; route/drop-off; approving adult name and stored signature. |
 
 Adult names are first initial plus surname, except explicit Helper display-name
@@ -32,17 +32,16 @@ sample retained delivery and return fields while production receipts lost them.
 The correction shares one layout, uses actual Helvetica text metrics, and embeds
 signature images from the authenticated backend response.
 
-## Deployment order
+## Original paper and current overrides (October 7)
 
-1. Install the companion PassKiosk PrintHubEndpoint.gs change in the live Apps
-   Script project and update the existing anonymous worker deployment. Keep its
-   current URL and credential.
-2. Publish the hub renderer, production integration and service-worker update.
-3. Confirm the Chromebook hub loads build `0.8.0-restored-templates` and uses
-   renderer `printhub-web-0.8.0`.
-4. Release the six synthetic HELD jobs in Print_Jobs rows 18–23, after checking
-   their IDs/statuses. Confirm physical output before calling the templates done.
+Checked the original corridor, request, detention and activity-bus photographs
+shared September 30–October 1. Restore operational fields from those forms,
+including the second corridor signature and both detention acknowledgement lines.
+Use CORRIDOR PASS and REQUEST FOR STUDENT as the printed titles.
+The request return wording remains “Sent back to class by” plus @ time.
+Keep the revised cafeteria / Room 602 instructions and 1:46 PM / 4:20 PM times;
+the older paper instructions are superseded. Activity bus needs no changes.
 
-The six proofs cover unexcused hall, excused hall, call, lunch detention,
-after-school detention and activity bus. They are explicitly test transactions,
-not actual student assignments.
+Build `0.8.1-paper-form-fields` / renderer `printhub-web-0.8.1` incorporates
+these corrections. Rows 18–23 were already printed on 0.8.0; any further physical
+proof must be an explicit new test or reprint job after the Chromebook refreshes.
