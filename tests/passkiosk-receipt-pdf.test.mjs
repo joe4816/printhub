@@ -93,12 +93,25 @@ test('detention has its identifiers, date issued, date(s) and separate direction
   assert.match(pdf, /Dear Parent\/Guardian/);
   assert.match(pdf, /Student Signature/);
   assert.match(pdf, /Parent Signature/);
-  assert.match(pdf, /DATE ISSUED/);
+  assert.match(pdf, /\(ISSUED\) Tj/);
   assert.match(pdf, /Oct 6, 2026, 5:31 PM/);
   assert.match(pdf, /Oct 7, 2026, Oct 8, 2026/);
   assert.match(pdf, /- First instruction/);
   assert.match(pdf, /- Second instruction/);
   assert.match(pdf, /Room 602/);
+});
+
+test('both detention notices keep issuer with issue date above infraction and detention dates', () => {
+  for (const Workflow of ['DET', 'LUNCH_DET']) {
+    const pdf = decoded(buildPassKioskReceiptPdf({Workflow,
+      'Issued By':'Joseph Nagy', 'Created At':'2026-10-07T13:42:00Z',
+      'Reason(s)':'TEST INFRACTION', 'Detention Date':'2026-10-07'}));
+    assert.match(pdf, /Oct 7, 2026, 6:42 AM \/ J\. Nagy/);
+    assert.ok(pdf.indexOf('J. Nagy') < pdf.indexOf('DETENTION DATE'));
+    assert.ok(pdf.indexOf('J. Nagy') < pdf.indexOf('INFRACTION'));
+    assert.doesNotMatch(pdf, /\(Issued by\) Tj/);
+    assert.match(pdf, /Administrator Signature/);
+  }
 });
 
 test('activity bus has a complete template instead of generic workflow fallback', () => {

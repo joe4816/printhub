@@ -147,7 +147,7 @@
       return;
     }
 
-    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.1');
+    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.2');
     const doc = buildPassKioskReceiptPdf({
       Workflow:'RQST', 'Student Name':'JORDAN SMITH',
       'Delivery Period':'P3', 'Delivery Room':'214', 'Delivery Teacher':'Lind',
@@ -362,4 +362,3 @@
     return String(value || '').trim().slice(0, 120);
   }
 })();
-
