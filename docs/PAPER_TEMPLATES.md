@@ -1,6 +1,6 @@
 # PassKiosk paper templates
 
-Build 0.8.3 uses one content builder in `shared/passkiosk-receipt-pdf.js` for all six examples and all three paper profiles. Correct fields, headings, issuer/date placement, parent notification, directions, signatures, acknowledgements, return lines, and delivery-header alignment must be changed in that builder, not copied into a paper-specific fork.
+Builds 0.8.3 and later use one content builder in `shared/passkiosk-receipt-pdf.js` for all six examples and all three paper profiles. Correct fields, headings, issuer/date placement, parent notification, directions, signatures, acknowledgements, return lines, and delivery-header alignment must be changed in that builder, not copied into a paper-specific fork.
 
 | Profile | PDF size | Layout |
 | --- | --- | --- |
@@ -21,10 +21,11 @@ Statement and quarter-letter use their real fixed page dimensions and compact sp
 
 ## Deployment boundary
 
-These templates are available in the deployed hub. Production polling remains the verified Receipt Printer 1 route. Copier queue routing and ChromeOS printer media submission still require separate implementation and physical verification; publishing these templates does not complete copier routing. Historical PowerShell/PostScript workers are outside the active Chromebook architecture and are not reintroduced.
+These templates are available in the deployed hub. Build 0.8.5 and bridge source 0.6.0 implement all six CUPS routes and ChromeOS paper submission; see PRINTER_ROUTES.md. The signed bridge package is still pending owner installation, and physical copier verification remains outstanding. The current installed 0.5.0 bridge continues the verified Receipt Printer 1 route. Historical PowerShell/PostScript workers are outside the active Chromebook architecture and are not reintroduced.
 
 The generic HTML adapter is an early scaffolding contract, not the approved PassKiosk ticket renderer. New copier routes must invoke the shared PDF builder rather than use the generic field-table layout or an old local PostScript template. The separately deployed letter-size email formatter is not one of these three print profiles.
 
 ## Verification
 
 Automated checks cover six variants across all three profiles, stored signature raster inclusion, required content and order, fixed dimensions, receipt compatibility, and overflow rejection. Visually inspect all twelve fixed-paper examples before publishing. No physical copier-print claim is implied by PDF checks.
+
