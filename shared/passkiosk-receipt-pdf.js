@@ -1,21 +1,36 @@
 import {HELVETICA, HELVETICA_BOLD} from './receipt-font-metrics.js';
 
-const WIDTH_MICRONS = 80000;
-const WIDTH_PT = WIDTH_MICRONS * 72 / 25400;
-const MARGIN = 4 * 72 / 25.4;
 const TIME_ZONE = 'America/Los_Angeles';
 const SCHOOL = 'Ernest A. Becker Sr. Middle School';
 
-// Shared by the production queue and the hub's sample button.
+// Compatibility API for the production receipt queue and existing sample button.
 export function buildPassKioskReceiptPdf(transaction = {}) {
+  return buildPassKioskPdf(transaction, '80MM_RECEIPT');
+}
+
+// B6 is the existing copier selection for physical quarter-letter sheets.
+// The PDF uses the real sheet dimensions; do not change the copier's paper alias.
+export const PASSKIOSK_PAPER_PROFILES = Object.freeze({
+  '80MM_RECEIPT': Object.freeze({widthMicrons:80000}),
+  'STATEMENT': Object.freeze({widthMicrons:215900, heightMicrons:139700}),
+  'B6': Object.freeze({widthMicrons:107950, heightMicrons:139700})
+});
+
+export function buildPassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT') {
+  const profile = PASSKIOSK_PAPER_PROFILES[paperProfile];
+  if (!profile) throw new Error('Unsupported PassKiosk paper profile: ' + paperProfile);
+  const fixed = Boolean(profile.heightMicrons);
+  const WIDTH_MICRONS = profile.widthMicrons;
+  const WIDTH_PT = WIDTH_MICRONS * 72 / 25400;
+  const MARGIN = fixed ? 12 : 4 * 72 / 25.4;
   const tx = transaction || {};
   const workflow = String(tx.Workflow || '').trim().toUpperCase();
   // Keep the approved activity-bus layout; other receipts need extra right clearance.
-  const CONTENT_WIDTH = (workflow === 'BUS' ? 72 : 68) * 72 / 25.4;
+  const CONTENT_WIDTH = fixed ? WIDTH_PT - 2 * MARGIN : (workflow === 'BUS' ? 72 : 68) * 72 / 25.4;
   const RIGHT = MARGIN + CONTENT_WIDTH;
   const blocks = [];
-  const gap = (height = 4) => blocks.push({kind:'gap', height});
-  const rule = () => blocks.push({kind:'rule', height:9});
+  const gap = (height = 4) => blocks.push({kind:'gap', height:fixed ? height / 2 : height});
+  const rule = () => blocks.push({kind:'rule', height:fixed ? 6 : 9});
   const text = (value, size = 9, bold = false, align = 'left') => {
     for (const line of wrapText(value, size, bold, CONTENT_WIDTH)) {
       blocks.push({kind:'text', text:line, size, bold, align, height:size + 3});
@@ -29,8 +44,8 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
   };
   const writingLine = (label, withTime = false) => {
     text(label, 8, true);
-    gap(11);
-    blocks.push({kind:'writingLine', withTime, height:11});
+    gap(fixed ? 16 : 11);
+    blocks.push({kind:'writingLine', withTime, height:fixed ? 6 : 11});
   };
   const signature = (label, name) => {
     field(label, adultName(name), 10, true);
@@ -40,7 +55,7 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
       const scale = Math.min(1, 150 / image.width, 36 / image.height);
       blocks.push({kind:'image', image, width:image.width * scale,
         imageHeight:image.height * scale, height:image.height * scale + 5});
-    }
+    } else if (fixed) gap(28);
   };
   const student = () => {
     field('STUDENT', tx['Student Name'], 12, true);
@@ -63,7 +78,7 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
     rule();
   }
   text(tx['School Name'] || SCHOOL, 8.5, true, 'center');
-  gap(4);
+  gap(fixed ? 8 : 4);
   const title = workflowTitle(workflow);
   let titleSize = 15;
   while (textWidth(title, titleSize, true) > CONTENT_WIDTH && titleSize > 11) titleSize -= 0.5;
@@ -126,13 +141,17 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
   rule();
   const id = String(tx['Transaction ID'] || '').trim();
   if (id) text(id, 6.5, false, 'center');
-  const top = 14;
-  const bottom = 18;
+  const top = fixed ? 18 : 14;
+  const bottom = fixed ? 14 : 18;
   const heightPt = Math.max(90000 * 72 / 25400,
     top + blocks.reduce((sum, b) => sum + b.height, 0) + bottom);
-  const heightMicrons = Math.ceil(heightPt * 25400 / 72 / 1000) * 1000;
+  const heightMicrons = fixed ? profile.heightMicrons : Math.ceil(heightPt * 25400 / 72 / 1000) * 1000;
   const actualHeightPt = heightMicrons * 72 / 25400;
-  let y = actualHeightPt - top;
+  const blockHeight = blocks.reduce((sum, b) => sum + b.height, 0);
+  const scale = fixed ? Math.min(1, (actualHeightPt - top - bottom) / blockHeight) : 1;
+  if (scale < 0.7) throw new Error('Pass content is too long for ' + paperProfile + '; use Statement or receipt paper.');
+  const drawingHeight = fixed ? top + blockHeight + bottom : actualHeightPt;
+  let y = drawingHeight - top;
   let stream = '';
   for (const block of blocks) {
     if (block.kind === 'text') {
@@ -166,6 +185,12 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
     }
     y -= block.height;
   }
+  if (fixed) {
+    // Keep the content's upper-left margin while fitting all required elements.
+    stream = 'q ' + scale.toFixed(6) + ' 0 0 ' + scale.toFixed(6) + ' ' +
+      (MARGIN * (1 - scale)).toFixed(2) + ' ' +
+      (actualHeightPt - top - (drawingHeight - top) * scale).toFixed(2) + ' cm\n' + stream + 'Q\n';
+  }
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -198,6 +223,8 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
     title:title + (tx['Student Name'] ? ' - ' + tx['Student Name'] : ''),
     widthMicrons:WIDTH_MICRONS,
     heightMicrons,
+    paperProfile,
+    layoutScale:scale,
     pdfBase64:bytesToBase64(new TextEncoder().encode(pdf))
   };
 }
@@ -317,13 +344,17 @@ function validateSignatureRaster(image) {
 // Signatures arrive only with the authenticated worker response, never as public assets.
 // Flatten transparency onto white so black thermal printers retain the actual ink.
 export async function buildPrintablePassKioskReceiptPdf(transaction = {}) {
+  return buildPrintablePassKioskPdf(transaction, '80MM_RECEIPT');
+}
+
+export async function buildPrintablePassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT') {
   const tx = {...transaction};
   const payload = tx['Signature Payload'];
   if (payload) tx['Signature Raster'] = await rasterizeSignature(payload);
   else if (tx['Signature File'] && !tx['Signature Raster']) {
     throw new Error('Stored signature image was not supplied by the backend.');
   }
-  return buildPassKioskReceiptPdf(tx);
+  return buildPassKioskPdf(tx, paperProfile);
 }
 
 async function rasterizeSignature(payload) {
