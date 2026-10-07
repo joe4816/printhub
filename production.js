@@ -74,7 +74,7 @@
     try {
       if (String(job.mediaProfileId || '') !== '80MM_RECEIPT') throw new Error('Unsupported media profile: ' + String(job.mediaProfileId || ''));
       if (String(job.rendererId || '') !== 'PASSKIOSK_RECEIPT') throw new Error('Unsupported renderer: ' + String(job.rendererId || ''));
-      const module = await import('./shared/passkiosk-receipt-pdf.js');
+      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.1');
       const doc = await module.buildPrintablePassKioskReceiptPdf(job.transaction || {});
       const result = await bridgeRequest('PRINT_SOURCE_JOB', {
         job,
