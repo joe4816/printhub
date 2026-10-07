@@ -7,9 +7,9 @@
 | AP_TARDY | AP Office Tardy Printer | 80MM_RECEIPT |
 | AP_COPIER | AP Office Copier | STATEMENT |
 | MAIN_COPIER | Main Office Copier | STATEMENT |
-| BACK_OFFICE | Back Office | B6 |
+| BACK_OFFICE | Back Office | A6 |
 
-Back Office alone uses the existing B6 driver setting with physical quarter-letter paper. AP/Main use Statement, landscape, single-sided. All use the approved shared PassKiosk PDF builder.
+Back Office uses ISO A6 (105 × 148 mm), portrait, with 6 mm side margins. The installed media must advertise matching dimensions; physical B6 and quarter-letter are not substitutes. Legacy B6 queue identifiers render and submit as A6. AP/Main use Statement, landscape, single-sided. All use the approved shared PassKiosk PDF builder.
 
 Bridge 0.6.0 supplies these exact-name bindings automatically; existing managed URI/name overrides remain authoritative. Missing or duplicate matches fail readiness; no device-default fallback. The test printer dropdown is independent of production routing.
 

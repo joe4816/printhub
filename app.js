@@ -78,7 +78,7 @@
     const target = $('printerRouteRows');
     $('refreshRoutes').disabled = true;
     try {
-      const catalog = await import('./shared/printer-catalog.js?v=0.8.5');
+      const catalog = await import('./shared/printer-catalog.js?v=0.8.6');
       let status;
       try { status = await bridgeRequest('SOURCE_STATUS',{},15000); }
       catch (_) { status = {}; }
@@ -87,13 +87,14 @@
       for (const route of catalog.PRINTER_ROUTES) {
         const checked = actual.find(r=>r.key===route.key);
         const tr = document.createElement('tr');
-        const result = checked ? (checked.ready ? 'Ready' : checked.error || 'Unavailable') : 'Bridge v0.6.0 required';
-        for (const value of [route.name,route.mediaProfileId === '80MM_RECEIPT' ? '80 mm receipt' : route.mediaProfileId === 'B6' ? 'B6 · quarter-letter' : 'Statement',result]) {
+        const needsA6 = route.key === 'BACK_OFFICE' && checked && checked.mediaProfileId !== 'A6';
+        const result = needsA6 ? 'Bridge v0.6.1 required for A6' : checked ? (checked.ready ? 'Ready' : checked.error || 'Unavailable') : 'Bridge v0.6.1 required';
+        for (const value of [route.name,route.mediaProfileId === '80MM_RECEIPT' ? '80 mm receipt' : route.mediaProfileId === 'A6' ? 'A6 · 105 × 148 mm' : 'Statement',result]) {
           const td = document.createElement('td'); td.textContent=value; tr.append(td);
         }
         target.append(tr);
       }
-      $('printerRoutesResult').textContent = actual.length ? actual.filter(r=>r.ready).length + ' of 6 printer routes ready. Only ready routes receive queued jobs.' : 'Install bridge v0.6.0 to verify these bindings on this Chromebook.';
+      $('printerRoutesResult').textContent = actual.length ? actual.filter(r=>r.ready && (r.key !== 'BACK_OFFICE' || r.mediaProfileId === 'A6')).length + ' of 6 printer routes ready. Only ready routes receive queued jobs.' : 'Install bridge v0.6.1 to verify these bindings on this Chromebook.';
     } catch (err) { $('printerRoutesResult').textContent = err.message; }
     finally { $('refreshRoutes').disabled = false; }
   }
@@ -172,7 +173,7 @@
     const selected = $('templateWorkflow').value;
     const workflow = selected === 'PASS_EXCUSED' ? 'PASS' : selected;
     try {
-      const {buildPassKioskPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.5');
+      const {buildPassKioskPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.6');
       const tx = {
         Workflow:workflow, 'Student Name':'TEST - ' + selected.replaceAll('_', ' '),
         'Student ID':'TEST-ONLY', Grade:8, 'Created At':new Date().toISOString(),
@@ -208,7 +209,7 @@
       return;
     }
 
-    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.5');
+    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.6');
     const doc = buildPassKioskReceiptPdf({
       Workflow:'RQST', 'Student Name':'JORDAN SMITH',
       'Delivery Period':'P3', 'Delivery Room':'214', 'Delivery Teacher':'Lind',

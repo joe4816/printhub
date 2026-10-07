@@ -2,9 +2,10 @@
   'use strict';
   const CHANNEL = 'PRINTHUB_BRIDGE_V1';
   const pending = new Map();
-  const RENDERER_VERSION = 'printhub-web-0.8.5';
+  const RENDERER_VERSION = 'printhub-web-0.8.6';
   let running = false;
   let stopped = false;
+  let bridgeVersion = '0.0.0';
 
   window.addEventListener('message', onBridgeMessage);
   document.addEventListener('DOMContentLoaded', () => setTimeout(start, 1200));
@@ -14,6 +15,7 @@
     running = true;
     try {
       const bridge = await bridgeRequest('PING', {}, 5000);
+      bridgeVersion = String(bridge.version || '0.0.0');
       if (!versionAtLeast(String(bridge.version || '0.0.0'), '0.5.0')) {
         setSourceState('BRIDGE UPDATE NEEDED', 'idle');
         setSourceBadge('managed source · staged');
@@ -41,6 +43,7 @@
       setSourceState('POLLING', 'ok');
       log('PassKiosk production polling enabled for ' + status.endpointId + '.');
       if (!versionAtLeast(String(bridge.version || ''), '0.6.0')) log('Bridge v0.6.0 is required for all six printer routes. Current bridge continues Receipt Printer 1 only.');
+      if (!versionAtLeast(String(bridge.version || ''), '0.6.1')) log('Back Office A6 jobs wait for bridge v0.6.1.');
       schedulePoll(250);
     } catch (err) {
       running = false;
@@ -56,7 +59,7 @@
   async function pollOnce() {
     if (stopped) return;
     try {
-      const result = await bridgeRequest('POLL_SOURCE', {maxJobs:1, supportedMediaProfiles:['80MM_RECEIPT','STATEMENT','B6']}, 15000);
+      const result = await bridgeRequest('POLL_SOURCE', {maxJobs:1, supportedMediaProfiles:versionAtLeast(bridgeVersion, '0.6.1') ? ['80MM_RECEIPT','STATEMENT','A6','B6'] : ['80MM_RECEIPT','STATEMENT']}, 15000);
       const jobs = Array.isArray(result.jobs) ? result.jobs : [];
       for (const job of jobs) await processJob(job);
       setSourceState('POLLING', 'ok');
@@ -74,10 +77,10 @@
     log('Claimed ' + id + ' · ' + (job.routeLabel || job.routeId || 'route') + '.');
     try {
       const profile = String(job.mediaProfileId || '');
-      const renderers = { '80MM_RECEIPT':'PASSKIOSK_RECEIPT', STATEMENT:'PASSKIOSK_PDF', B6:'PASSKIOSK_PDF' };
+      const renderers = { '80MM_RECEIPT':'PASSKIOSK_RECEIPT', STATEMENT:'PASSKIOSK_PDF', A6:'PASSKIOSK_PDF', B6:'PASSKIOSK_PDF' };
       if (!renderers[profile]) throw new Error('Unsupported media profile: ' + profile);
       if (String(job.rendererId || '') !== renderers[profile]) throw new Error('Unsupported renderer: ' + String(job.rendererId || ''));
-      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.5');
+      const module = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.6');
       const doc = await module.buildPrintablePassKioskPdf(job.transaction || {}, profile);
       const result = await bridgeRequest('PRINT_SOURCE_JOB', {
         job,

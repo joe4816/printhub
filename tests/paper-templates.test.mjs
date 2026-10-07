@@ -21,7 +21,7 @@ for (const paper of Object.keys(PASSKIOSK_PAPER_PROFILES)) {
       const tx = {...base, Workflow:variant === 'PASS_EXCUSED' ? 'PASS' : variant, Excused:variant === 'PASS_EXCUSED'};
       const doc = buildPassKioskPdf(tx, paper), content = pdf(doc);
       assert.equal(doc.widthMicrons, PASSKIOSK_PAPER_PROFILES[paper].widthMicrons);
-      if (paper !== '80MM_RECEIPT') assert.equal(doc.heightMicrons, 139700);
+      if (paper !== '80MM_RECEIPT') assert.equal(doc.heightMicrons, PASSKIOSK_PAPER_PROFILES[paper].heightMicrons);
       assert.ok(doc.layoutScale >= 0.7);
       assert.match(content, /SAMPLE-NOT-RECORDED/);
       assert.match(content, /\/Sig Do/);

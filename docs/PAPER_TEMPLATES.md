@@ -6,9 +6,10 @@ Builds 0.8.3 and later use one content builder in `shared/passkiosk-receipt-pdf.
 | --- | --- | --- |
 | `80MM_RECEIPT` | 80 mm wide, content-driven height | Approved receipt spacing; activity-bus receipt preserved |
 | `STATEMENT` | 8.5 × 5.5 inches | Half-letter landscape |
-| `B6` | 4.25 × 5.5 inches | Actual quarter-letter sheet, portrait |
+| `A6` | 105 × 148 mm | Back Office, portrait, 6 mm side margins |
+| `B6` (legacy queue identifier) | 105 × 148 mm | Compatibility alias for corrected Back Office A6 |
 
-Sal confirmed that the copier already successfully prints quarter-letter sheets using its B6 setting. B6 here is that existing printer alias, not ISO or JIS B6 paper. Keep the copier configuration. Do not replace this with nominal B6 PDF dimensions.
+The copier panel was subsequently confirmed as A6. The prior B6/quarter-letter assumption caused a paper mismatch. Both the PDF and printer ticket now use A6; matching printer capability dimensions are mandatory.
 
 ## Entry points
 
@@ -17,14 +18,8 @@ Sal confirmed that the copier already successfully prints quarter-letter sheets 
 - Existing receipt entry points delegate to the same builder and preserve receipt PDF bytes for the same input.
 - The hub's **PassKiosk Template Preview** card downloads synthetic samples in all three sizes. It does not record students, assign detention, queue jobs, or print.
 
-Statement and quarter-letter use their real fixed page dimensions and compact spacing, fitting the complete content without trimming a field. Excessively long content fails explicitly if fitting would require less than 70% scale. It is never silently cropped.
+Statement and A6 use their real fixed page dimensions and compact spacing, fitting the complete content without trimming a field. Excessively long content fails explicitly if fitting would require less than 70% scale. It is never silently cropped.
 
 ## Deployment boundary
 
-These templates are available in the deployed hub. Build 0.8.5 and bridge source 0.6.0 implement all six CUPS routes and ChromeOS paper submission; see PRINTER_ROUTES.md. The signed bridge package and update feed are published at 0.6.0. Chromebook update confirmation and physical copier verification remain outstanding. An installed 0.5.0 bridge continues only the verified Receipt Printer 1 route. Historical PowerShell/PostScript workers are outside the active Chromebook architecture and are not reintroduced.
-
-The generic HTML adapter is an early scaffolding contract, not the approved PassKiosk ticket renderer. New copier routes must invoke the shared PDF builder rather than use the generic field-table layout or an old local PostScript template. The separately deployed letter-size email formatter is not one of these three print profiles.
-
-## Verification
-
-Automated checks cover six variants across all three profiles, stored signature raster inclusion, required content and order, fixed dimensions, receipt compatibility, and overflow rejection. Visually inspect all twelve fixed-paper examples before publishing. No physical copier-print claim is implied by PDF checks.
+Hub build 0.8.6 and signed bridge 0.6.1 correct Back Office to A6. The deployed Apps Script backend retains B6 as a legacy wire identifier; the hub renders it as A6 and the new bridge normalizes it to the A6 binding. This supports existing queued jobs without rewriting historical rows or redeploying the backend. Back Office jobs are excluded from polling on bridges before 0.6.1. Other routes continue operating. Physical A6 verification is still required.

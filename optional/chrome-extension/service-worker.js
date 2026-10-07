@@ -1,5 +1,5 @@
 importScripts('printer-routing.js');
-const EXTENSION_VERSION='0.6.0';
+const EXTENSION_VERSION='0.6.1';
 const SOURCE_JOB_PREFIX='PRINTHUB_SOURCE_JOB_';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -166,7 +166,8 @@ async function submitSourceJob(payload) {
   const requestedHeight = clampNumber(payload && payload.heightMicrons, 60000, 500000, 100000);
   const trimSupported = supportsTrim(caps);
   const trimRequested = payload && payload.trim !== false;
-  const profile = String(job.mediaProfileId || '');
+  const requestedProfile = String(job.mediaProfileId || '');
+  const profile = bindingKey === 'BACK_OFFICE' && requestedProfile === 'B6' ? 'A6' : requestedProfile;
   const bindingProfile = cfg.bindings[bindingKey].mediaProfileId;
   if (bindingProfile && bindingProfile !== profile) throw new Error('Job paper does not match binding ' + bindingKey);
   const media = chooseProfileMedia(caps, profile, requestedHeight);

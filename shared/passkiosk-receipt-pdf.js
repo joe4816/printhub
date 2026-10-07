@@ -8,12 +8,13 @@ export function buildPassKioskReceiptPdf(transaction = {}) {
   return buildPassKioskPdf(transaction, '80MM_RECEIPT');
 }
 
-// B6 is the existing copier selection for physical quarter-letter sheets.
-// The PDF uses the real sheet dimensions; do not change the copier's paper alias.
+// Back Office uses ISO A6. B6 is retained only for legacy queued jobs,
+// which must render with the corrected A6 geometry as well.
 export const PASSKIOSK_PAPER_PROFILES = Object.freeze({
   '80MM_RECEIPT': Object.freeze({widthMicrons:80000}),
   'STATEMENT': Object.freeze({widthMicrons:215900, heightMicrons:139700}),
-  'B6': Object.freeze({widthMicrons:107950, heightMicrons:139700})
+  'A6': Object.freeze({widthMicrons:105000, heightMicrons:148000}),
+  'B6': Object.freeze({widthMicrons:105000, heightMicrons:148000})
 });
 
 export function buildPassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT') {
@@ -22,7 +23,7 @@ export function buildPassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT
   const fixed = Boolean(profile.heightMicrons);
   const WIDTH_MICRONS = profile.widthMicrons;
   const WIDTH_PT = WIDTH_MICRONS * 72 / 25400;
-  const MARGIN = fixed ? 12 : 4 * 72 / 25.4;
+  const MARGIN = ['A6','B6'].includes(paperProfile) ? 6 * 72 / 25.4 : fixed ? 12 : 4 * 72 / 25.4;
   const tx = transaction || {};
   const workflow = String(tx.Workflow || '').trim().toUpperCase();
   // Keep the approved activity-bus layout; other receipts need extra right clearance.
