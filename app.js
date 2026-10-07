@@ -29,6 +29,7 @@
     $('refreshPrinters').addEventListener('click', refreshBridgePrinters);
     $('bridgePrint').addEventListener('click', directPrintTest);
     $('sampleCallPass').addEventListener('click', sampleCallPassTest);
+    $('templatePreview').addEventListener('click', downloadTemplatePreview);
     $('bridgePrinter').addEventListener('change', () => {
       $('bridgePrint').disabled = !$('bridgePrinter').value;
     });
@@ -139,6 +140,39 @@
     }
   }
 
+  async function downloadTemplatePreview() {
+    const paper = $('templatePaper').value;
+    const selected = $('templateWorkflow').value;
+    const workflow = selected === 'PASS_EXCUSED' ? 'PASS' : selected;
+    try {
+      const {buildPassKioskPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.3');
+      const tx = {
+        Workflow:workflow, 'Student Name':'TEST - ' + selected.replaceAll('_', ' '),
+        'Student ID':'TEST-ONLY', Grade:8, 'Created At':new Date().toISOString(),
+        'Transaction ID':'SAMPLE-NOT-RECORDED', 'Session User':'Sample Adult',
+        'Issued By':'Sample Adult', 'Requested By':'Sample Adult', 'Approved By':'Sample Adult',
+        From:'Office - Room 239', To:'Rm 202 / Sample Teacher', Excused:selected === 'PASS_EXCUSED',
+        'Reason(s)':selected === 'PASS' ? '' : workflow === 'PASS' ? 'Returning from Office Visit' : 'TEST ONLY - sample reason',
+        'Delivery Period':'P1', 'Delivery Room':'109', 'Delivery Teacher':'Sample Teacher',
+        Destination:'Office - Room 239', When:'Immediately',
+        'Detention Date':new Intl.DateTimeFormat('en-CA', {timeZone:'America/Los_Angeles', year:'numeric', month:'2-digit', day:'2-digit'}).format(new Date()),
+        'Report To':workflow === 'DET' ? 'Room 602' : 'The Cafeteria',
+        'Directions Snapshot':workflow === 'DET'
+          ? 'Report to the detention room 602 by 1:46 PM.\nDetention will be released at 4:20 PM.\nA late bus will be available for students eligible for transportation Monday through Thursday.'
+          : 'Report directly to the cafeteria for your lunch period.\nImmediately check in with the administrator by the restrooms and let them know if you will be eating a school lunch.\nUse the restroom before arriving at detention.\nArrival more than 5 minutes late earns an additional day of detention.',
+        'Bus Route(s)':'TEST ROUTE', 'Bus Drop-off(s)':'TEST STOP'
+      };
+      const doc = buildPassKioskPdf(tx, paper);
+      const bytes = Uint8Array.from(atob(doc.pdfBase64), c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+      const link = document.createElement('a');
+      link.href = url; link.download = 'PassKiosk-' + selected + '-' + paper + '-sample.pdf';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      $('templatePreviewResult').textContent = 'Downloaded ' + doc.title + ' · ' + paper + '. No pass or print job was created.';
+    } catch (err) { $('templatePreviewResult').textContent = 'Preview failed: ' + err.message; }
+  }
+
   async function sampleCallPassTest() {
     const printerId = $('bridgePrinter').value;
     const printerName = $('bridgePrinter').selectedOptions[0]?.textContent || 'selected printer';
@@ -147,7 +181,7 @@
       return;
     }
 
-    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.2');
+    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.3');
     const doc = buildPassKioskReceiptPdf({
       Workflow:'RQST', 'Student Name':'JORDAN SMITH',
       'Delivery Period':'P3', 'Delivery Room':'214', 'Delivery Teacher':'Lind',
