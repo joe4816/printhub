@@ -6,5 +6,5 @@ export const PRINTER_ROUTES = Object.freeze([
   {key:'CAFE_TARDY',name:'Cafe Tardy Printer',mediaProfileId:'80MM_RECEIPT'},
   {key:'MAIN_COPIER',name:'Main Office Copier',mediaProfileId:'STATEMENT'},
   {key:'RECEIPT1',name:'Receipt Printer 1',mediaProfileId:'80MM_RECEIPT'},
-  {key:'RECEIPT2',name:'Receipt Printer 2',mediaProfileId:'80MM_RECEIPT'}
+  {key:'RECEIPT2',name:'Back Ofc Aides',mediaProfileId:'80MM_RECEIPT'}
 ].map(Object.freeze));

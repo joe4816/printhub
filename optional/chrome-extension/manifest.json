@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PrintHub ChromeOS Bridge",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Managed ChromeOS bridge that lets PrintHub enumerate and target specific printers.",
   "permissions": ["printing", "storage"],
   "host_permissions": [

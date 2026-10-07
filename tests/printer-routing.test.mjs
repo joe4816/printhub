@@ -13,6 +13,7 @@ sandbox.caps=caps;
 test('all seven CUPS destinations agree across page and bridge',()=>{
  assert.deepEqual(routeValue('PRINTER_ROUTES'),PRINTER_ROUTES);
  assert.equal(PRINTER_ROUTES.length,7);
+ assert.equal(PRINTER_ROUTES.find(r=>r.key==='RECEIPT2').name,'Back Ofc Aides');
  assert.equal(PRINTER_ROUTES.filter(r=>r.mediaProfileId==='A6')[0].name,'Back Office');
 });
 test('exact printer resolution rejects missing and duplicate names',()=>{
