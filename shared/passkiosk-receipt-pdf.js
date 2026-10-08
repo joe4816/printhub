@@ -1,4 +1,5 @@
 import {HELVETICA, HELVETICA_BOLD} from './receipt-font-metrics.js';
+import {requestClockTime} from './request-clock.js';
 
 const TIME_ZONE = 'America/Los_Angeles';
 const SCHOOL = 'Ernest A. Becker Sr. Middle School';
@@ -246,7 +247,7 @@ function adultName(value) {
 }
 function requestWhen(tx) {
   const when = String(tx.When || '').trim();
-  const at = String(tx['At Time'] || '').trim();
+  const at = requestClockTime(tx['At Time']);
   return when === 'At:' && at ? 'At ' + at : when;
 }
 function detentionDates(tx) {

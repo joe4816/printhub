@@ -1,3 +1,5 @@
+import {requestClockTime} from '../shared/request-clock.js';
+
 export function passKioskDocumentModel(transaction, options = {}) {
   const tx = transaction || {};
   const workflow = String(tx['Workflow'] || '').trim().toUpperCase();
@@ -71,7 +73,7 @@ function workflowTitle(workflow) {
 
 function requestWhen(tx) {
   const when = String(tx['When'] || '').trim();
-  const at = String(tx['At Time'] || '').trim();
+  const at = requestClockTime(tx['At Time']);
   if (!when) return '';
   if (when === 'At:' && at) return 'At ' + at;
   return when;
@@ -127,3 +129,4 @@ function parseDate(value) {
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? null : d;
 }
+
