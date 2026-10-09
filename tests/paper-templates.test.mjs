@@ -27,8 +27,9 @@ for (const paper of Object.keys(PASSKIOSK_PAPER_PROFILES)) {
       assert.match(content, /\/Sig Do/);
       assert.match(content, /Ernest A\. Becker Sr\. Middle School/);
       if (tx.Workflow === 'PASS') {
-        for (const value of ['CORRIDOR PASS', 'EXCUSED', 'Time returned', 'Signed', 'This pass must be returned']) assert.ok(content.includes(value));
+        for (const value of ['CORRIDOR PASS', 'EXCUSED']) assert.ok(content.includes(value));
         assert.ok(content.includes(tx.Excused ? 'Excused by' : 'Signed by'));
+        assert.doesNotMatch(content, /Time returned|\(Signed\) Tj|This pass must be returned/);
       } else if (tx.Workflow === 'RQST') {
         assert.ok(content.includes('REQUEST FOR STUDENT'));
         assert.ok(content.indexOf('DELIVER TO:') < content.indexOf('Ernest A. Becker'));
@@ -42,11 +43,9 @@ for (const paper of Object.keys(PASSKIOSK_PAPER_PROFILES)) {
     });
   }
 }
-test('all six receipt variants preserve the approved 0.8.2 PDF bytes', () => {
+test('other workflow receipts preserve the approved 0.8.2 PDF bytes', () => {
   // Baseline hashes from the deployed 0.8.2 renderer, commit f7d95ef.
   const hashes = {
-    PASS:'00102b1847f67e3b4b64a6f4413b5944cb3d6f8515e28b8feb8b714db9b2b4b0',
-    PASS_EXCUSED:'8017b35c9effc9bdd5b4b809134e00b1b7de57ae58dda787684135c8584397b5',
     RQST:'5dce52e993a25e242e677a89ccf4c00b6898350a9b0762bee36d85972c995398',
     LUNCH_DET:'05e363b90d2595fa975a8d6d974d130fb6f96d0f44c4c62cf3ff6af9878e5966',
     DET:'6c4b8dc82c542c285817ed783e306010d33481489830b4c667ddbbbfaea6ab9e',
@@ -60,3 +59,4 @@ test('all six receipt variants preserve the approved 0.8.2 PDF bytes', () => {
 test('fixed paper refuses content that would be unreadable instead of clipping', () => {
   assert.throws(() => buildPassKioskPdf({...base,Workflow:'DET','Reason(s)':'Long infraction '.repeat(200)},'B6'), /too long/);
 });
+

@@ -68,16 +68,16 @@ test('call-pass delivery header precedes school and restores the return signatur
   assert.match(pdf, /\(@\) Tj/);
 });
 
-test('hall pass keeps explicit excused status separate from reason and restores return fields', () => {
+test('hall pass keeps explicit excused status separate from reason and omits return acknowledgements', () => {
   for (const excused of [true, false]) {
     const pdf = decoded(buildPassKioskReceiptPdf({
       Workflow:'PASS', Excused:excused, 'Session User':'Derek Krallman'
     }));
     assert.match(pdf, excused ? /Excused by/ : /Signed by/);
     assert.match(pdf, /D\. Krallman/);
-    assert.match(pdf, /Time returned/);
-    assert.match(pdf, /\(Signed\) Tj/);
-    assert.match(pdf, /This pass must be returned/);
+    assert.doesNotMatch(pdf, /Time returned/);
+    assert.doesNotMatch(pdf, /\(Signed\) Tj/);
+    assert.doesNotMatch(pdf, /This pass must be returned/);
     assert.doesNotMatch(pdf, /REASON \/ EXCUSED FOR/);
   }
 });
@@ -146,8 +146,8 @@ test('stored signature raster is embedded as an image; no blank signature substi
   assert.match(pdf, /\/Sig 7 0 R/);
   assert.match(pdf, /\/Sig Do/);
   assert.doesNotMatch(pdf, /\(Signature\)/);
-  assert.match(pdf, /Time returned/);
-    assert.match(pdf, /\(Signed\) Tj/);
+  assert.doesNotMatch(pdf, /Time returned/);
+    assert.doesNotMatch(pdf, /\(Signed\) Tj/);
 });
 
 test('a configured but missing signature stops production printing', async () => {
@@ -156,3 +156,4 @@ test('a configured but missing signature stops production printing', async () =>
   assert.throws(() => buildPassKioskReceiptPdf({Workflow:'PASS',
     'Signature Raster':{width:2, height:2, grayHex:'00'}}), /Invalid signature/);
 });
+

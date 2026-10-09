@@ -100,9 +100,6 @@ export function buildPassKioskPdf(transaction = {}, paperProfile = '80MM_RECEIPT
     field('ISSUED', formatDateTime(tx['Created At']), 9, false);
     signature(tx.Excused === true ? 'Excused by' : 'Signed by',
       tx['Issued By'] || tx['Session User']);
-    writingLine('Time returned');
-    writingLine('Signed');
-    text('This pass must be returned to the teacher from whose room you were excused.', 8);
   } else if (workflow === 'RQST') {
     field('SEND STUDENT TO', tx.Destination, 12);
     field('WHEN', requestWhen(tx), 11);
@@ -387,3 +384,4 @@ async function rasterizeSignature(payload) {
     return {width, height, grayHex};
   } finally { bitmap.close(); }
 }
+

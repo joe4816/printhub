@@ -78,7 +78,7 @@
     const target = $('printerRouteRows');
     $('refreshRoutes').disabled = true;
     try {
-      const catalog = await import('./shared/printer-catalog.js?v=0.8.10');
+      const catalog = await import('./shared/printer-catalog.js?v=0.8.11');
       let status;
       try { status = await bridgeRequest('SOURCE_STATUS',{},15000); }
       catch (_) { status = {}; }
@@ -173,7 +173,7 @@
     const selected = $('templateWorkflow').value;
     const workflow = selected === 'PASS_EXCUSED' ? 'PASS' : selected;
     try {
-      const {buildPassKioskPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.10');
+      const {buildPassKioskPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.11');
       const tx = {
         Workflow:workflow, 'Student Name':'TEST - ' + selected.replaceAll('_', ' '),
         'Student ID':'TEST-ONLY', Grade:8, 'Created At':new Date().toISOString(),
@@ -209,7 +209,7 @@
       return;
     }
 
-    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.10');
+    const {buildPassKioskReceiptPdf} = await import('./shared/passkiosk-receipt-pdf.js?v=0.8.11');
     const doc = buildPassKioskReceiptPdf({
       Workflow:'RQST', 'Student Name':'JORDAN SMITH',
       'Delivery Period':'P3', 'Delivery Room':'214', 'Delivery Teacher':'Lind',
@@ -424,3 +424,4 @@
     return String(value || '').trim().slice(0, 120);
   }
 })();
+

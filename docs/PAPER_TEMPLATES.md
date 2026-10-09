@@ -1,6 +1,6 @@
 # PassKiosk paper templates
 
-Builds 0.8.3 and later use one content builder in `shared/passkiosk-receipt-pdf.js` for all six examples and all three paper profiles. Correct fields, headings, issuer/date placement, parent notification, directions, signatures, acknowledgements, return lines, and delivery-header alignment must be changed in that builder, not copied into a paper-specific fork.
+Builds 0.8.3 and later use one content builder in `shared/passkiosk-receipt-pdf.js` for all six examples and all three paper profiles. Correct fields, headings, issuer/date placement, parent notification, directions, signatures, workflow-specific acknowledgements, and delivery-header alignment must be changed in that builder, not copied into a paper-specific fork.
 
 | Profile | PDF size | Layout |
 | --- | --- | --- |
@@ -23,3 +23,8 @@ Statement and A6 use their real fixed page dimensions and compact spacing, fitti
 ## Deployment boundary
 
 Hub build 0.8.6 and signed bridge 0.6.1 correct Back Office to A6. The deployed Apps Script backend retains B6 as a legacy wire identifier; the hub renders it as A6 and the new bridge normalizes it to the A6 binding. This supports existing queued jobs without rewriting historical rows or redeploying the backend. Back Office jobs are excluded from polling on bridges before 0.6.1. Other routes continue operating. Physical A6 verification is still required.
+
+## Corridor cleanup — 0.8.11
+
+All corridor formats, including excused passes, omit the teacher-return instruction, Time returned line, and separate Signed return-acknowledgement line. The issuing adult name and signature remain. Other workflow templates retain their approved content.
+
