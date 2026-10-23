@@ -89,7 +89,7 @@
         const tr = document.createElement('tr');
         const needsA6 = route.key === 'BACK_OFFICE' && checked && checked.mediaProfileId !== 'A6';
         const result = route.key === 'CAFE_TARDY' && !checked ? 'Bridge v0.6.3 required' : needsA6 ? 'Bridge v0.6.1 required for A6' : checked ? (checked.ready ? 'Ready' : checked.error || 'Unavailable') : 'Bridge v0.6.1 required';
-        for (const value of [route.name,route.mediaProfileId === '80MM_RECEIPT' ? '80 mm receipt' : route.mediaProfileId === 'A6' ? 'A6 · 105 × 148 mm' : 'Statement',result]) {
+        for (const value of [route.name,route.mediaProfileId === '80MM_RECEIPT' ? '80 mm receipt' : route.mediaProfileId === 'A6' ? 'A6 · 105 × 148 mm' : route.mediaProfileId === 'LETTER' ? 'Letter · 8.5 × 11 in' : 'Statement',result]) {
           const td = document.createElement('td'); td.textContent=value; tr.append(td);
         }
         target.append(tr);
