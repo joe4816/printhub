@@ -23,7 +23,7 @@ function resolveExactPrinter(printers, binding, bindingKey) {
 
 function chooseProfileMedia(caps, profile, requestedHeight) {
   if (profile === '80MM_RECEIPT') return chooseMedia(caps, requestedHeight);
-  if (!['STATEMENT','A6','B6','LETTER'].includes(profile) throw new Error('Unsupported paper profile: ' + profile);
+  if (!['STATEMENT','A6','B6','LETTER'].includes(profile)) throw new Error('Unsupported paper profile: ' + profile);
   // B6 is a legacy queue identifier, never a request for physical B6 stock.
   const a6 = profile === 'A6' || profile === 'B6';
   const letter = profile === 'LETTER';
