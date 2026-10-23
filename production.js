@@ -59,7 +59,10 @@
   async function pollOnce() {
     if (stopped) return;
     try {
-      const result = await bridgeRequest('POLL_SOURCE', {maxJobs:1, supportedMediaProfiles:versionAtLeast(bridgeVersion, '0.6.1') ? ['80MM_RECEIPT','STATEMENT','A6','B6'] : ['80MM_RECEIPT','STATEMENT']}, 15000);
+      const supportedMediaProfiles = versionAtLeast(bridgeVersion, '0.6.1') ? ['80MM_RECEIPT','STATEMENT','A6','B6'] : ['80MM_RECEIPT','STATEMENT'];
+      // Letter jobs must not be claimed by a pre-Letter managed bridge.
+      if (versionAtLeast(bridgeVersion, '0.6.4')) supportedMediaProfiles.push('LETTER');
+      const result = await bridgeRequest('POLL_SOURCE', {maxJobs:1, supportedMediaProfiles}, 15000);
       const jobs = Array.isArray(result.jobs) ? result.jobs : [];
       for (const job of jobs) await processJob(job);
       setSourceState('POLLING', 'ok');
@@ -77,6 +80,32 @@
     log('Claimed ' + id + ' · ' + (job.routeLabel || job.routeId || 'route') + '.');
     try {
       const profile = String(job.mediaProfileId || '');
+      // Isolated yearbook proof: the authenticated GAS worker supplies the original
+      // 3-page PDF, not a synthetic PassKiosk receipt re-rendering.
+      if (String(job.rendererId || '') === 'YEARBOOK_PDF_FILE') {
+        if (String(job.routeId || '') !== 'YEARBOOK_LETTER' ||
+            String(job.bindingKey || '') !== 'YEARBOOK_LETTER' || profile !== 'LETTER') {
+          throw new Error('Yearbook test routing mismatch.');
+        }
+        if (!versionAtLeast(bridgeVersion, '0.6.4')) {
+          throw new Error('Managed bridge v0.6.4 or later is required for Letter.');
+        }
+        const pdfBase64 = String(job.pdfBase64 || '');
+        if (!pdfBase64 || pdfBase64.length > 4000000) {
+          throw new Error('Yearbook test PDF is missing or too large.');
+        }
+        const result = await bridgeRequest('PRINT_SOURCE_JOB', {
+          job,
+          title:String(job.title || 'YEARBOOK TEST - 3 pages - US LETTER'),
+          pdfBase64,
+          widthMicrons:215900,
+          heightMicrons:279400,
+          trim:false,
+          rendererVersion:'yearbook-letter-test-v1'
+        }, 20000);
+        log('Submitted ' + id + ' to ' + (result.printerName || 'AP Office Copier') + ' as 8.5 × 11 in Letter.');
+        return;
+      }
       const renderers = { '80MM_RECEIPT':'PASSKIOSK_RECEIPT', STATEMENT:'PASSKIOSK_PDF', A6:'PASSKIOSK_PDF', B6:'PASSKIOSK_PDF' };
       if (!renderers[profile]) throw new Error('Unsupported media profile: ' + profile);
       if (String(job.rendererId || '') !== renderers[profile]) throw new Error('Unsupported renderer: ' + String(job.rendererId || ''));

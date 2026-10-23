@@ -1,6 +1,7 @@
 // Exact installed names supplied by the CUPS inventory. No default-printer fallback.
 const PRINTER_ROUTES = Object.freeze([
   {key:'AP_COPIER',name:'AP Office Copier',mediaProfileId:'STATEMENT'},
+  {key:'YEARBOOK_LETTER',name:'AP Office Copier',mediaProfileId:'LETTER'},
   {key:'AP_TARDY',name:'AP Office Tardy Printer',mediaProfileId:'80MM_RECEIPT'},
   {key:'BACK_OFFICE',name:'Back Office',mediaProfileId:'A6'},
   {key:'CAFE_TARDY',name:'Cafe Tardy Printer',mediaProfileId:'80MM_RECEIPT'},
@@ -22,19 +23,21 @@ function resolveExactPrinter(printers, binding, bindingKey) {
 
 function chooseProfileMedia(caps, profile, requestedHeight) {
   if (profile === '80MM_RECEIPT') return chooseMedia(caps, requestedHeight);
-  if (!['STATEMENT','A6','B6'].includes(profile)) throw new Error('Unsupported paper profile: ' + profile);
+  if (!['STATEMENT','A6','B6','LETTER'].includes(profile)) throw new Error('Unsupported paper profile: ' + profile);
   // B6 is a legacy queue identifier, never a request for physical B6 stock.
   const a6 = profile === 'A6' || profile === 'B6';
+  const letter = profile === 'LETTER';
   const options = caps.media_size && caps.media_size.option || [];
   const label = m => [m.name,m.vendor_id,m.custom_display_name].join(' ').toUpperCase();
-  const wanted = a6 ? [105000,148000] : [139700,215900];
+  const wanted = a6 ? [105000,148000] : letter ? [215900,279400] : [139700,215900];
   const geometric = options.filter(m => {
     const dims = [Number(m.width_microns),Number(m.height_microns)].sort((a,b)=>a-b);
     return !m.is_continuous_feed && dims.every((v,i)=>Math.abs(v-wanted[i])<=1500);
   });
   // Require correct dimensions even when a driver supplies a familiar paper name.
   const named = geometric.filter(m => a6 ?
-    /(?:^|[^A-Z0-9])A6(?:[^A-Z0-9]|$)/.test(label(m)) :
+    /(?:^|[^A-Z0-9])A6(?:[^A-Z0-9]|$)/.test(label(m)) : letter ?
+    /LETTER/.test(label(m)) :
     /STATEMENT|HALF[ _-]?LETTER/.test(label(m)));
   const candidates = named.length ? named : geometric;
   const selected = candidates.find(m=>m.is_default) || candidates[0];

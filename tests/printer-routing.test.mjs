@@ -10,11 +10,12 @@ vm.createContext(sandbox); vm.runInContext(routing+'\n'+worker,sandbox);
 const routeValue = expression => JSON.parse(vm.runInContext('JSON.stringify('+expression+')',sandbox));
 const caps = {media_size:{option:[{name:'NA_LETTER',width_microns:215900,height_microns:279400,is_default:true},{name:'NA_STATEMENT',vendor_id:'statement',width_microns:139700,height_microns:215900},{name:'ISO_B6',vendor_id:'B6',width_microns:125000,height_microns:176000},{name:'ISO_A6',vendor_id:'A6',width_microns:105000,height_microns:148000}]},page_orientation:{option:[{type:'PORTRAIT',is_default:true},{type:'LANDSCAPE'}]},duplex:{option:[{type:'LONG_EDGE',is_default:true},{type:'NO_DUPLEX'}]}};
 sandbox.caps=caps;
-test('all seven CUPS destinations agree across page and bridge',()=>{
+test('existing CUPS destinations and separate yearbook Letter alias agree across page and bridge',()=>{
  assert.deepEqual(routeValue('PRINTER_ROUTES'),PRINTER_ROUTES);
- assert.equal(PRINTER_ROUTES.length,7);
+ assert.equal(PRINTER_ROUTES.length,8);
  assert.equal(PRINTER_ROUTES.find(r=>r.key==='RECEIPT2').name,'Back Ofc Aides');
  assert.equal(PRINTER_ROUTES.filter(r=>r.mediaProfileId==='A6')[0].name,'Back Office');
+ assert.equal(PRINTER_ROUTES.find(r=>r.key==='YEARBOOK_LETTER').name,'AP Office Copier');
 });
 test('exact printer resolution rejects missing and duplicate names',()=>{
  sandbox.printers=[{id:'a',name:'Receipt Printer 1'},{id:'b',name:'Main Office Copier'}];
@@ -42,11 +43,12 @@ test('old bridge cannot claim copier jobs; readiness and catalog must match',()=
 });
 test('source submissions reach seven distinct installed printers with correct tickets',async()=>{
  const submitted=[];const callbacks=[];const stored={};
- const printers=PRINTER_ROUTES.map(r=>({id:'cups-'+r.key,name:r.name,uri:'test://'+r.key}));
+ const regularRoutes=PRINTER_ROUTES.filter(r=>r.key!=='YEARBOOK_LETTER');
+ const printers=regularRoutes.map(r=>({id:'cups-'+r.key,name:r.name,uri:'test://'+r.key}));
  const receiptCaps={...caps,media_size:{option:[{is_continuous_feed:true,width_microns:80000,min_height_microns:25400,max_height_microns:500000}]}};
  const context=vm.createContext({Blob,atob,TextEncoder,console,fetch:async(url,args)=>{callbacks.push(JSON.parse(args.body));return{ok:true,text:async()=>'{"ok":true}'};},chrome:{runtime:{onMessage:{addListener(){}}},storage:{managed:{get:async()=>({sourceConfigJson:JSON.stringify({endpointUrl:'https://script.google.com/macros/s/test/exec',endpointId:'PH-FRONT-RECEIPT-01',endpointKey:'x'.repeat(32),bindings:{RECEIPT1:{name:'Receipt Printer 1'}}})})},local:{get:async()=>stored,set:async row=>Object.assign(stored,row)}},printing:{onJobStatusChanged:{addListener(){}},getPrinters:async()=>printers,getPrinterInfo:async id=>({status:'AVAILABLE',capabilities:{printer:PRINTER_ROUTES.find(r=>'cups-'+r.key===id).mediaProfileId==='80MM_RECEIPT'?receiptCaps:caps}}),submitJob:async({job})=>{submitted.push(job);return{status:'OK',jobId:'job-'+submitted.length}}}},importScripts(){}});
  vm.runInContext(routing+'\n'+worker,context);
- for(const route of PRINTER_ROUTES){context.payload={job:{printJobId:'PJ-'+route.key,endpointId:'PH-FRONT-RECEIPT-01',bindingKey:route.key,mediaProfileId:route.key==='BACK_OFFICE'?'B6':route.mediaProfileId,claim:{claimId:'CLM-test'}},pdfBase64:'JVBERi0xLjQ=',heightMicrons:139700,trim:route.mediaProfileId==='80MM_RECEIPT',rendererVersion:'test'};await vm.runInContext('submitSourceJob(payload)',context);}
+ for(const route of regularRoutes){context.payload={job:{printJobId:'PJ-'+route.key,endpointId:'PH-FRONT-RECEIPT-01',bindingKey:route.key,mediaProfileId:route.key==='BACK_OFFICE'?'B6':route.mediaProfileId,claim:{claimId:'CLM-test'}},pdfBase64:'JVBERi0xLjQ=',heightMicrons:139700,trim:route.mediaProfileId==='80MM_RECEIPT',rendererVersion:'test'};await vm.runInContext('submitSourceJob(payload)',context);}
  assert.deepEqual(submitted.map(j=>j.printerId),printers.map(p=>p.id));
  assert.equal(submitted[0].ticket.print.media_size.vendor_id,'statement');
  assert.equal(submitted[2].ticket.print.media_size.vendor_id,'A6');
@@ -54,7 +56,7 @@ test('source submissions reach seven distinct installed printers with correct ti
  await vm.runInContext('pollSource({maxJobs:1})',context);
  assert.deepEqual(callbacks.at(-1).readyBindingKeys,['AP_TARDY','CAFE_TARDY','RECEIPT1','RECEIPT2']);
  await vm.runInContext("pollSource({maxJobs:1,supportedMediaProfiles:['80MM_RECEIPT','STATEMENT','A6','B6']})",context);
- assert.deepEqual(callbacks.at(-1).readyBindingKeys,PRINTER_ROUTES.map(r=>r.key));
+ assert.deepEqual(callbacks.at(-1).readyBindingKeys,regularRoutes.map(r=>r.key));
 });
 
 test('A6 rejects B6 and mislabeled media, accepts custom matching geometry',()=>{
@@ -65,3 +67,15 @@ test('A6 rejects B6 and mislabeled media, accepts custom matching geometry',()=>
  assert.equal(routeValue('chooseProfileMedia(caps,"B6",148000)').vendor_id,'A6');
 });
 
+
+test('Letter requires exactly 8.5 by 11 inch media and portrait simplex',()=>{
+ const media=routeValue('chooseProfileMedia(caps,"LETTER",100000)');
+ assert.equal(media.width_microns,215900);
+ assert.equal(media.height_microns,279400);
+ sandbox.media=media;
+ const ticket=routeValue('buildProfileTicket(caps,media,false,"LETTER")');
+ assert.equal(ticket.print.page_orientation.type,'PORTRAIT');
+ assert.equal(ticket.print.duplex.type,'NO_DUPLEX');
+ assert.equal(ticket.print.copies.copies,1);
+ assert.throws(()=>vm.runInContext('chooseProfileMedia({media_size:{option:[{width_microns:139700,height_microns:215900}]}},"LETTER",100000)',sandbox),/not advertised/);
+});
