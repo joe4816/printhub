@@ -63,6 +63,8 @@ const ybReply = ybLetterTestCompleteHook_(body);
 if (ybReply) return ybReply;
 ```
 
+**Safety switch:** the current PassKiosk development branch checks the separate Script Property `YEARBOOK_LETTER_TEST_ARMED`; its default is OFF. Only an explicit `armYearbookLetterPrintTest()` in Apps Script permits the test to be claimed. `disarmYearbookLetterPrintTest()` stops new claims; it cannot cancel an already submitted ChromeOS print. Existing PrintHub routes are unaffected by this switch.
+
 **Important:** the GAS hook claims a test job with a 10-minute lease but
 does not itself implement claim recovery. The single job should be left
 queued until both ends are ready; do not enable live test polling early.
@@ -79,8 +81,13 @@ changing the managed endpoint URL.
 3. Publish the updated PrintHub static page.
 4. Build and sign matching 0.6.4 extension with existing private key,
    publish matching CRX and update XML in a single verified release.
-5. Confirm ChromeOS bridge 0.6.4 and YEARBOOK_LETTER ready on the kiosk.
-6. Run `getYearbookLetterPrintTestStatus()` in GAS to observe job lifecycle.
-7. Physically inspect the copier for all three Letter sheets from Cassette 1.
+5. Confirm ChromeOS bridge 0.6.4 and YEARBOOK_LETTER ready on the kiosk while the test switch remains OFF.
+6. Check other PrintHub receipt and Statement routes before activating the yearbook test.
+7. Execute `armYearbookLetterPrintTest()` once in the deployed GAS project and monitor `getYearbookLetterPrintTestStatus()`.
+8. Physically inspect the copier for all three Letter sheets from Cassette 1.
+
+## Rollback caution
+
+Changing an update feed from 0.6.4 back to 0.6.3 does not normally downgrade an already-updated managed Chrome extension. If a bridge regression occurs, a new signed 0.6.5 package restored from known-good 0.6.3 source may be required. Keep the private key private and retain the old tested source/CRX. Stop yearbook claims with `disarmYearbookLetterPrintTest()` before troubleshooting; do not disable all PassKiosk printing unless absolutely necessary.
 
 No student records, parent names or signing secrets belong in this repository.
