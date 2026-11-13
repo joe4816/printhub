@@ -299,7 +299,18 @@ async function auditPrinterRoutes(cfg) {
       const info = await printerInfo(printer.id);
       const caps = info && info.capabilities && info.capabilities.printer;
       if (!caps) throw new Error('Printer capabilities unavailable.');
-      if (['UNREACHABLE','STOPPED','EXPIRED_CERTIFICATE'].includes(info.status)) throw new Error('Printer status: ' + info.status);
+      // This exact receipt destination has printed successfully from ChromeOS
+      // while getPrinterInfo reports UNREACHABLE. Allow submission to determine
+      // the actual outcome; retain normal job failure/status reporting.
+      const advisoryUnreachable = info.status === 'UNREACHABLE' &&
+        key === 'RECEIPT2' && row.mediaProfileId === '80MM_RECEIPT' &&
+        printer.name === 'Back Ofc Aides' &&
+        printer.uri === 'socket://10.158.80.27:9100';
+      if (['UNREACHABLE','STOPPED','EXPIRED_CERTIFICATE'].includes(info.status) && !advisoryUnreachable) throw new Error('Printer status: ' + info.status);
+      if (advisoryUnreachable) {
+        row.warning = 'ChromeOS reports UNREACHABLE; submission allowed for verified Back Ofc Aides destination.';
+        console.warn('[PrintHub RECEIPT2]', row.warning);
+      }
       const profile = row.mediaProfileId || '80MM_RECEIPT';
       const media = chooseProfileMedia(caps,profile,100000);
       buildProfileTicket(caps,media,false,profile);
