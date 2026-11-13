@@ -79,3 +79,24 @@ test('Letter requires exactly 8.5 by 11 inch media and portrait simplex',()=>{
  assert.equal(ticket.print.copies.copies,1);
  assert.throws(()=>vm.runInContext('chooseProfileMedia({media_size:{option:[{width_microns:139700,height_microns:215900}]}},"LETTER",100000)',sandbox),/not advertised/);
 });
+
+// Exercise the production audit and poll path, including strict exception scope.
+test('false unreachable exception is limited to the verified Back Ofc Aides destination',async()=>{
+ async function audit({key='RECEIPT2',name='Back Ofc Aides',uri='socket://10.158.80.27:9100',status='UNREACHABLE',capabilities={printer:{}} ,profile='80MM_RECEIPT'}={}) {
+  const context=vm.createContext({console:{warn(){}},importScripts(){},chrome:{
+   runtime:{onMessage:{addListener(){}}},printing:{onJobStatusChanged:{addListener(){}},
+    getPrinters:async()=>[{id:'test',name,uri}],getPrinterInfo:async()=>({status,capabilities})}}});
+  vm.runInContext(routing+'\n'+worker,context);
+  context.cfg={bindings:{[key]:{name,mediaProfileId:profile}}};
+  return (await vm.runInContext('auditPrinterRoutes(cfg)',context))[0];
+ }
+ const allowed=await audit();
+ assert.equal(allowed.ready,true);assert.match(allowed.warning,/UNREACHABLE/);
+ for(const status of ['STOPPED','EXPIRED_CERTIFICATE']) assert.equal((await audit({status})).ready,false);
+ for(const key of ['RECEIPT1','AP_TARDY','YEARBOOK_LETTER']) assert.equal((await audit({key})).ready,false);
+ assert.equal((await audit({uri:'socket://10.158.82.23:9100'})).ready,false);
+ assert.equal((await audit({name:'Different Printer'})).ready,false);
+ assert.equal((await audit({capabilities:{}})).ready,false);
+ assert.equal((await audit({profile:'LETTER'})).ready,false);
+ assert.equal((await audit({status:'AVAILABLE'})).ready,true);
+});
